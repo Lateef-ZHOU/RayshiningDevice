@@ -1,5 +1,9 @@
 # 验证记录
 
+## 2026-10-28：删除串口刷新按钮（用户定）
+
+删除刷新按钮及其处理逻辑，端口枚举结果改为只读；固定线路参数、端口选择和连接/断开保持。Windows Release 增量构建、qmllint、既有 QML 1/1（12 项、8 秒离屏）通过，日志 build/build-no-refresh.log、build/test-no-refresh.log；未重复协议和 Linux 全套，无实物连接。本地提交，未推送。
+
 ## 2026-10-28：状态收回右侧栏与串口选择统一（用户定）
 
 - 种子/放大的状态分别由 LaserStatus 收缩栏显示，左侧两个图窗直接使用 LaserTelemetryChart，删除混合状态与图表的 LaserMonitor 及 append/clear 转发。状态仍引用原有回报，不新增数据缓存或查询触发。

@@ -38,7 +38,7 @@ ModulePage {
     QtObject {
         id: internals
         readonly property LaserDevice device: root.LaserDevice
-        property var ports: device.ports()
+        readonly property var ports: device.ports()
     }
     function query(registers, manual) {
         const sent = internals.device.readRegisters(targetModule, widthIndex, registers)
@@ -127,14 +127,6 @@ ModulePage {
         }
         Label { text: "115200 · 8N1 · 无流控"; opacity: 0.6 }
         RowLayout {
-            Button {
-                text: qsTr("刷新")
-                onClicked: {
-                    const selected = root.portName
-                    internals.ports = internals.device.ports()
-                    portSelector.value = Math.max(0, internals.ports.indexOf(selected))
-                }
-            }
             Button { text: qsTr("连接"); onClicked: { if (internals.device.open(root.portName)) root.logMessage(qsTr("连接请求已提交")) } }
             Button { text: qsTr("断开"); onClicked: internals.device.close() }
         }
