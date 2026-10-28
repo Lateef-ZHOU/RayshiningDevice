@@ -13,13 +13,11 @@ public:
     {
         for (const char byte : chunk) {
             bytes_.push_back(byte);
-            while (bytes_.size() >= 4) {
+            while (bytes_.size() >= HeaderSize) {
                 if (bytes_[0] != 'W' || bytes_[1] != 'H' || bytes_[2] != 'L' || bytes_[3] != 'S') {
                     bytes_.pop_front();
                     continue;
                 }
-                if (bytes_.size() < HeaderSize)
-                    break;
                 const std::size_t total = readBe16(bytes_[8], bytes_[9]) + MinFrameSize;
                 if (bytes_.size() < total)
                     break;
