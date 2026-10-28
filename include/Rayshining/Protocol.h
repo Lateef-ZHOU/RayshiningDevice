@@ -46,7 +46,7 @@ inline constexpr std::size_t MaxFrameSize = MaxDataSize + MinFrameSize;
         && crc16(bytes.sliced(4, size - 7)) == readBe16(bytes[size - 3], bytes[size - 2]);
 }
 
-// 数据区原样封装；寄存器、脉宽等混合字节序由后续型号业务解释。
+// 数据区原样封装；寄存器、脉宽等混合字节序归型号业务，不由成帧层解释。
 [[nodiscard]] inline QByteArray encode(std::uint16_t address, unsigned char command,
                                        unsigned char width, QByteArrayView data)
 {

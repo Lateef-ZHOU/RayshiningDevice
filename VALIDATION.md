@@ -1,5 +1,16 @@
 # 验证记录
 
+## 2026-10-28：C++ 激光器官邸与回包解析
+
+- LaserDevice 直接使用 DeviceBase + 唯一 LaserHandle，未修改共享库、未添加设备族或空 Collector。DeviceCore 从远端按固定提交 5c63ec5c501d83a15daa65a41dca438ee4ff330f 拉取。
+- 新增主体语义验证 143 项：文档九寄存器示例、全部值类型、普通小端/脉宽三字节大端、字符零字节、重复项顺序、四类确认、主体所有截断位置及未知/非法值拒绝。模式和报警保留位图，没有声明完成各位业务解释。
+- 新增官邸实际串口链路 47 项：查询线字节与文档一致、离线/占用/非法查询拒绝、半帧与粘包、多寄存器解析、错误回包后继续接收、RxTime 和主线程交付、断开/重连、结果独立持有、关闭后 retiring；另循环十次验证结果已排队但不泵主线程时析构，确认通知被撤销且串口资源释放。
+- Windows MSVC 19.51 / Qt 6.11.2：Release /W4 构建、五个公开头独立编译、CTest 5/5 全部通过，811 项断言通过。Linux ArchHFNL GCC 16.2.1 / Qt 6.12.0：Release -Wall -Wextra -Wpedantic、相同五头/五组/811 项全部通过。最终构建无编译警告。
+- 首轮测试暴露测试自身的诊断计数混用了查询失败和回包失败；改为记录接收前基数后重新通过。测试中的单个 char 常量截断警告已修正。Linux 结果回显命令曾收到 PowerShell 末尾 CR，另行直接读取最终日志确认测试全部通过；不涉及生产程序失败。
+- 未打开实物串口、未进行激光出光或 ARM 验证；没有 UI，因此本轮不适用 QML/窗口冒烟。主程序、公共库与 simonly 未改，不推送。
+
+证据：Windows build/configure-device.log、build/build-device-final.log、build/test-device-final.log；Linux ~/.cache/rayshining-ring-20261028/configure-device.log、build-device.log、build-device-final.log、test-device-final.log。
+
 ## 2026-10-28：接收只交付报文主体（用户定）
 
 - 语义解析留给后续官邸 onStream。成帧器仍校验完整线上帧，交付时仅从环中复制地址至数据末尾，去掉 WHLS 与 CRC16/55；保留 6 字节元信息及 N 字节数据，发送仍为完整帧。
