@@ -25,10 +25,11 @@ public:
                     bytes_.pop_front(); // 坏帧只破坏一个字节，保留其内部可能存在的完整帧。
                     continue;
                 }
-                QByteArray frame(static_cast<qsizetype>(total), Qt::Uninitialized);
-                std::copy_n(bytes_.begin(), total, frame.data());
+                const auto bodySize = total - FrameHeadSize - FrameTailSize;
+                QByteArray body(static_cast<qsizetype>(bodySize), Qt::Uninitialized);
+                std::copy_n(bytes_.begin() + FrameHeadSize, bodySize, body.data());
                 bytes_.erase_begin(total);
-                deliver(frame, at); // 同步交付自有字节，不借出环形数组。
+                deliver(body, at); // 只复制地址至数据末尾；自有字节，不借出环形数组。
             }
         }
     }

@@ -5,8 +5,10 @@
 #include <QByteArrayView>
 
 namespace Rayshining {
+inline constexpr std::size_t FrameHeadSize = 4; // WHLS
+inline constexpr std::size_t FrameTailSize = 3; // CRC16 + 0x55
 inline constexpr std::size_t HeaderSize = 10;
-inline constexpr std::size_t MinFrameSize = 13;
+inline constexpr std::size_t MinFrameSize = HeaderSize + FrameTailSize;
 inline constexpr std::size_t MaxDataSize = 65535;
 inline constexpr std::size_t MaxFrameSize = MaxDataSize + MinFrameSize;
 

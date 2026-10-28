@@ -25,9 +25,9 @@ Q_SIGNALS:
     void logMessage(const QString &text) const final;
 
 private:
-    [[nodiscard]] RXRuling onRX(const QByteArray &frame, RxTime at, std::shared_ptr<ConnType>) override
+    [[nodiscard]] RXRuling onRX(const QByteArray &body, RxTime at, std::shared_ptr<ConnType>) override
     {
-        return {RXRuling::Decode, frame, at}; // 成帧器已校验，原样交业务层。
+        return {RXRuling::Decode, body, at}; // 已校验并去掉外层帧头尾；语义解析归官邸 onStream。
     }
     [[nodiscard]] TXRuling onTX(const QByteArray &frame, std::shared_ptr<ConnType>) const override
     {
