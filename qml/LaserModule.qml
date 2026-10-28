@@ -125,7 +125,12 @@ ModulePage {
                 onCommitted: i => value = i
             }
         }
-        Label { text: "115200 · 8N1 · 无流控"; opacity: 0.6 }
+        Label {
+            Layout.fillWidth: true
+            wrapMode: Text.Wrap
+            opacity: 0.6
+            text: internals.device.connectionDescription
+        }
         RowLayout {
             Button { text: qsTr("连接"); onClicked: { if (internals.device.open(root.portName)) root.logMessage(qsTr("连接请求已提交")) } }
             Button { text: qsTr("断开"); onClicked: internals.device.close() }

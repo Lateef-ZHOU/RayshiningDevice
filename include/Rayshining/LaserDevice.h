@@ -87,6 +87,7 @@ namespace Rayshining {
 class LaserDevice final : public DeviceBase
 {
     Q_OBJECT
+    Q_PROPERTY(QString connectionDescription READ connectionDescription CONSTANT)
     QML_NAMED_ELEMENT(LaserDevice)
     QML_ATTACHED(LaserDevice)
     QML_UNCREATABLE("由激光器 QML 官邸拥有")
@@ -108,6 +109,15 @@ public:
     [[nodiscard]] QString subtitle() const final { return QStringLiteral("串口 · RS-1550-300-MINI"); }
     [[nodiscard]] bool isOpen() const noexcept final { return handle_.isOpen(); }
     [[nodiscard]] QObject *logSourceObject() noexcept final { return &handle_; }
+
+    [[nodiscard]] QString connectionDescription() const
+    {
+        const auto params = LaserHandle::parameters({});
+        return QStringLiteral("%1 baud · %2 数据位 · %3 停止位\n校验：%4 · 流控：%5")
+            .arg(params.baudRate).arg(toString(params.dataBits)).arg(toString(params.stopBits))
+            .arg(params.parity == SP_PARITY_NONE ? QStringLiteral("无") : toString(params.parity))
+            .arg(params.flowControl == SP_FLOWCONTROL_NONE ? QStringLiteral("无") : QString::number(params.flowControl));
+    }
 
     // 表单只交端口；协议规格固定，不缓存串口设置或 UI 选择。
     [[nodiscard]] bool open(const SerialPortInfo &port) { return handle_.start(LaserHandle::parameters(port)); }

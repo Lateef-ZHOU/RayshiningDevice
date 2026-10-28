@@ -1,5 +1,9 @@
 # 验证记录
 
+## 2026-10-28：统一连接规格摘要（用户定）
+
+规格摘要从实际 SerialParams 生成，QML 只读显示；连接、协议和轮询不变。Windows Qt 6.11.2 Release 增量构建、qmllint、既有 QML 1/1（12 项、8 秒离屏）通过，无编译/QML 警告。首轮测试未加入 libserialport 运行库搜索路径而超时，补齐 PATH 后通过，未改运行代码或测试超时。证据：build/build-connection-summary.log、build/test-connection-summary.log。未重复 Linux/协议全套，无实物连接；仅本地提交。
+
 ## 2026-10-28：删除串口刷新按钮（用户定）
 
 删除刷新按钮及其处理逻辑，端口枚举结果改为只读；固定线路参数、端口选择和连接/断开保持。Windows Release 增量构建、qmllint、既有 QML 1/1（12 项、8 秒离屏）通过，日志 build/build-no-refresh.log、build/test-no-refresh.log；未重复协议和 Linux 全套，无实物连接。本地提交，未推送。
