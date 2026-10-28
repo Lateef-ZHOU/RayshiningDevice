@@ -44,7 +44,7 @@ int main(int argc, char **argv)
     std::vector<Reply> states;
     int marker = 0, errors = 0;
     bool mainThread = true;
-    LaserDevice device;
+    LaserDevice device(nullptr);
     QObject::connect(&device, &LaserDevice::telemetryReady, &app,
                      [&](RxTime at, Module module, const QVariantMap &values) {
         mainThread = mainThread && QThread::currentThread() == app.thread();

@@ -38,7 +38,7 @@ int main(int argc, char **argv)
     const auto before = std::chrono::system_clock::now();
     const auto good = QByteArray::fromHex("57484c530000b7000000af2755");
     {
-        LaserDevice device;
+        LaserDevice device(nullptr);
         const auto *logs = qobject_cast<LaserHandle *>(device.logSourceObject());
         require(logs != nullptr, "log source is existing Handle");
         QObject::connect(logs, &LaserHandle::logMessage, &app, [&](const QString &text) {
@@ -94,7 +94,7 @@ int main(int argc, char **argv)
     // 不泵主线程队列，先让收包线程排入结果，再删除设备；上下文销毁撤销未交付调用。
     const auto countBefore = received.size();
     for (int i = 0; i < 10; ++i) {
-        auto device = std::make_unique<LaserDevice>();
+        auto device = std::make_unique<LaserDevice>(nullptr);
         QObject::connect(device.get(), &LaserDevice::replyReady, &app,
                          [&](RxTime, const Reply &reply) { received.push_back(reply); });
         require(device->open({"controlled", {}}) && until([&] { return device->isOpen(); }), "stress open");

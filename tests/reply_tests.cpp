@@ -38,7 +38,7 @@ struct Receiver {
     std::vector<QVariantMap> telemetry;
     QStringList logs;
     bool markerReceived = false;
-    Rayshining::LaserDevice device; // 首先销毁设备、等收包退出，再释放测试接收状态。
+    Rayshining::LaserDevice device{nullptr}; // 首先销毁设备、等收包退出，再释放测试接收状态。
 
     Receiver()
     {
