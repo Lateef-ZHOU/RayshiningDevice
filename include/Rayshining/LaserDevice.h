@@ -1,14 +1,17 @@
 #pragma once
+#include <algorithm>
 #include <array>
 #include <bit>
 #include <cmath>
 #include <optional>
+#include <limits>
 #include <utility>
 #include <variant>
 #include <vector>
 #include <QList>
 #include <QMetaObject>
 #include <QMetaType>
+#include <QVariantMap>
 #include <QtEndian>
 #include <Device/Base/DeviceBase.h>
 #include "LaserHandle.h"
@@ -43,6 +46,7 @@ struct Reply {
 }
 
 Q_DECLARE_METATYPE(Rayshining::Reply)
+Q_DECLARE_METATYPE(Rayshining::Module)
 
 namespace Rayshining {
 // 激光器尚无任务族或 Collector；直接复用设备身份、状态与锁，Handle 独持收包回调。
@@ -54,7 +58,9 @@ public:
     {
         static_assert(FinalDevice<LaserDevice, decltype(&LaserDevice::PreDestruction)>);
         QObject::connect(&handle_, &LaserHandle::connectionChanged, this, [this](bool connected) {
-            if (!connected)
+            if (connected)
+                telemetry_ = {}; // 本轮连接的通知先于本轮回报入队；在主线程清空上一轮测量。
+            else
                 dropLock();
             Q_EMIT statusChanged();
         });
@@ -92,10 +98,18 @@ public:
     }
 
 Q_SIGNALS:
-    // 主线程交付一整包；时间原样传递，接收者决定如何显示/保存，不另存 latest 副本。
+    // 非绘图寄存器和命令确认：不缓存状态，成功解析后直接交显示业务。
     void replyReady(RxTime at, const Rayshining::Reply &reply);
+    // 同包最多一次完整快照。六值均使用本包时刻；尚未收到过的量为 NaN。
+    void telemetryReady(RxTime at, Rayshining::Module module, const QVariantMap &values);
 
 private:
+    struct Telemetry {
+        static constexpr double unknown = std::numeric_limits<double>::quiet_NaN();
+        double laserTemperature = unknown, mcuTemperature = unknown;
+        double pa1Current = unknown, pa2Current = unknown, pa3Current = unknown;
+        double voltage = unknown;
+    };
     enum class Format { Bits16, Unsigned32, Float32, Text, Emission, PulseWidth };
     [[nodiscard]] static std::optional<Format> format(Register address) noexcept
     {
@@ -221,11 +235,41 @@ private:
                 Q_EMIT self->handle_.logMessage(QStringLiteral("激光器回包命令未定义或属于请求命令"));
                 return;
             }
-            QMetaObject::invokeMethod(self, [self, at, reply = std::move(reply)] {
-                Q_EMIT self->replyReady(at, reply);
+            // 先验证整包，再更新缓存，坏包不会留下前半段测量。缓存与 UI 交付均在主线程。
+            QMetaObject::invokeMethod(self, [self, at, reply = std::move(reply)]() mutable {
+                auto &values = self->telemetry_[static_cast<std::size_t>(reply.module)];
+                bool plotUpdated = false; // 本包的局部标志，不跨包等待或节流。
+                for (const auto &reading : reply.readings) {
+                    double *destination = nullptr;
+                    switch (reading.address) {
+                    case Register::LaserTemperature: destination = &values.laserTemperature; break;
+                    case Register::McuTemperature: destination = &values.mcuTemperature; break;
+                    case Register::PA1Current: destination = &values.pa1Current; break;
+                    case Register::PA2Current: destination = &values.pa2Current; break;
+                    case Register::PA3Current: destination = &values.pa3Current; break;
+                    case Register::Voltage: destination = &values.voltage; break;
+                    default: break;
+                    }
+                    if (destination) {
+                        *destination = std::get<float>(reading.value);
+                        plotUpdated = true;
+                    }
+                }
+                // 当前协议的 Float32 寄存器恰为六项绘图量；其余状态不经过图表通知。
+                std::erase_if(reply.readings, [](const Reading &reading) {
+                    return std::holds_alternative<float>(reading.value);
+                });
+                if (!reply.readings.empty() || reply.command != Command::ReadReply)
+                    Q_EMIT self->replyReady(at, reply);
+                if (plotUpdated)
+                    Q_EMIT self->telemetryReady(at, reply.module,
+                        QVariantMap{{"laserTemperature", values.laserTemperature}, {"mcuTemperature", values.mcuTemperature},
+                            {"pa1Current", values.pa1Current}, {"pa2Current", values.pa2Current},
+                            {"pa3Current", values.pa3Current}, {"voltage", values.voltage}});
             }, Qt::QueuedConnection);
         };
     }
+    std::array<Telemetry, 2> telemetry_; // 种子/放大各一份六值缓存；仅主线程读写，不保存图表历史。
     LaserHandle handle_;
 };
 }

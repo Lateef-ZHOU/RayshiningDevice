@@ -25,19 +25,24 @@
 
 主体相对偏移 0/2/3/4/6 分别对应以上字段。地址和数据长度仍保留大端原始字节，数据区不作数值解释；正文中的 WHLS/55 不会被删除。空数据确认仍有 6 字节，例如模式切换确认上交 `00 00 B7 00 00 00`，不会退化成空数组。
 
-官邸的 `makeOnStream` 现场生成回调交给 Handle 独持，直接在回调内解释主体；失败处触发现有 `handle_.logMessage` 后返回，不通过返回值中转错误字符串。成功后以官邸为上下文排队到主线程发出 `replyReady(RxTime, const Reply&)`。不另设公开解码入口或独立回复文件，出现实际复用需求时再抽取。RXRuling 和 DataCallback 仍使用 QByteArray，HandleCore 接口不变。发送仍采用完整线上帧，不套用接收主体格式。
+官邸的 `makeOnStream` 现场生成回调交给 Handle 独持，直接在回调内解释主体；失败处触发现有 `handle_.logMessage` 后返回，不通过返回值中转错误字符串。整包验证成功后，以官邸为上下文排队到主线程处理：非绘图状态经 `replyReady` 交出，绘图量更新缓存后经 `telemetryReady` 交一次完整快照。不另设公开解码入口或独立回复文件，出现实际复用需求时再抽取。RXRuling 和 DataCallback 仍使用 QByteArray，HandleCore 接口不变。发送仍采用完整线上帧，不套用接收主体格式。
 
 ## C++ 官邸接口与数据
 
 - `open(SerialPortInfo)` / `close()`：显式连接与同步关闭；连接规格固定 115200/8N1/无流控。重连行为仍由 Handle 负责，官邸不缓存端口、模块选择或 UI 草稿。串口枚举直接使用 HandleCore 的串口接口。
 - `readRegisters(Module, quint8 widthIndex, const QList<Register>&)`：显式提交一次查询，模块为 Seed/Amplifier，脉宽号 0..5，寄存器非空且属于已定义枚举。发送前使用 canEngage；拒绝时写具体失败日志，Handle 已报告的发送失败不重复记录。返回 true 仅表示发送成功，不等于收到确认；没有待回包账本、轮询或自动重试业务。
-- `replyReady`：整包交付 `Reply{module, command, widthIndex, readings}`。B1 支持任意多个完整 8 字节寄存器记录，保留原顺序及重复项。B5/B6/B7/B8 为无数据确认；其中 B7/B8 要求地址和脉宽号均为 0。无数据确认不伪造当前模式、光开关通道或最新出光参数。
+- `replyReady`：只交非绘图寄存器或命令确认 `Reply{module, command, widthIndex, readings}`。B1 支持任意多个完整 8 字节寄存器记录，非绘图项保留原顺序及重复项；仅含绘图项的包不发此信号。B5/B6/B7/B8 为无数据确认；其中 B7/B8 要求地址和脉宽号均为 0。无数据确认不伪造当前模式、光开关通道或最新出光参数，也不触发绘图。
+- `telemetryReady(RxTime, Module, QVariantMap)`：一包只要包含绘图量，就在整包处理完后发一次六值完整快照；同包更新六项仍只发一次。字段为 laserTemperature、mcuTemperature、pa1Current、pa2Current、pa3Current、voltage，单位分别为 °C、A、V。QML 按模块路由后可以原样交 ChartCore 的 `LaserTelemetryChart.append(at, values)`，不再自行凑值。
+
+2026-10-28 用户定：绘图使用全量快照，六条曲线在每次通知的同一个 RxTime 同时追加。种子和放大各在官邸保存一份六值缓存；本包未回报的量沿用缓存，尚未收到过的量为 NaN，不能补零或等待六项全齐。重复绘图寄存器按包内顺序覆盖，末项生效。局部 plotUpdated 标志仅存在于当前包；普通状态不进入缓存。先验证整包再更新，语义坏包不污染缓存。缓存只在主线程读写，后台不接触；每次显式连接启动成功的通知在本轮回包之前排队，清空旧测量；Handle 内部自动重连不重复此通知，沿用本轮缓存。
+
+这是“按包聚合”，不是跨包合并：六项分六个协议帧返回，就发六次完整快照，图表写入 36 个点，以维持采样行对齐；不会在逐寄存器循环里再额外推送。后续定时查询应将六项合入一次 `readRegisters` 请求，尽量让设备同包回报；不能把串口同一次 read 中的多个独立帧误认作一个协议包。当前还没有 QML 轮询或自动发令，缓存/图表更新不会自行查询。
 
 `Reading` 持有 `Register` 地址和 `RegisterValue`，后者用 variant 表达 uint16 位图、uint32、float、固定四字符、EmissionState 或 PulseWidthOption，不再另存可与值不一致的“数据类型”字段。地址与主体长度大端；寄存器地址及普通数值小端；脉宽选项按文档示例为首字节可选标记（00/80）及后三字节大端值。序列号/型号片段保留零字节，不在后端拼接或缓存。模式与报警保留文档定义的低 16 位位图，位解释留给显示业务。
 
 未定义地址/命令/寄存器、非法枚举值、残缺记录和非有限浮点数均拒绝整份业务回包，并通过现有 Handle.logMessage 报告原因；不上传部分结果，下一帧继续解析。Handle 的成帧校验不受这些业务拒绝影响。未来协议新增寄存器时需补充本仓类型映射，不把未知地址冒充已定义枚举。
 
-时间按 RxTime 值传递；官邸不持 latest 状态或历史数组。`Reply` 已登记 Qt 元类型，当前是 C++ 接口，未登记 QML 类型或暴露 QVariant 转换门面。创建、连接、查询、关闭和析构均在对象所属主线程进行。析构首句执行私有 PreDestruction：先 Handle.stop 等回调退出，再 retiring 和父层释放锁；Qt 上下文销毁撤销尚未交付的回复。连接 false 仍按现有异步通知释放锁，未添加连接代数或改变已接受的延迟通知边界。
+时间按 RxTime 值传递；官邸仅保存上述最新绘图缓存，不保存历史或其他状态副本。`Reply` 和 `Module` 已登记 Qt 元类型；绘图快照为数值 QVariantMap，普通状态 Reply 的 QML 字段接入仍后续。创建、连接、查询、关闭和析构均在对象所属主线程进行。析构首句执行私有 PreDestruction：先 Handle.stop 等回调退出，再 retiring 和父层释放锁；Qt 上下文销毁撤销尚未交付的回复。连接 false 仍按现有异步通知释放锁，未添加连接代数或改变已接受的延迟通知边界。
 
 ## 构建与测试
 

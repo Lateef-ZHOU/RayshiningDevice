@@ -78,8 +78,8 @@ int main(int argc, char **argv)
         FakeSerialPort::enqueue(good.sliced(4) + encode(2, 0xb1, 0, {}) + readings);
         require(until([&] { return received.size() == 2 && errors == errorsBeforeReceive + 1; }), "actual stream parses and recovers after semantic error");
         require(received[0].command == Command::ModeReply && received[0].readings.empty()
-            && received[1].readings.size() == 2 && std::get<float>(received[1].readings[1].value) == -25.f,
-            "typed multi-value payload through device");
+            && received[1].readings.size() == 1 && std::get<quint32>(received[1].readings[0].value) == 10,
+            "state reply excludes telemetry delivered on its own signal");
         require(mainThread && timePreserved, "main-thread delivery and unchanged timestamp");
         require(device.tryLock(lock), "lock held before close");
         device.close();
@@ -89,7 +89,7 @@ int main(int argc, char **argv)
         require(until([&] { return received.size() == 3; }), "receive after reopen");
     }
     require(retiredClosed && FakeSerialPort::livePorts() == 0, "receive thread stops before retiring");
-    require(received[1].readings.size() == 2, "results survive device destruction");
+    require(received[1].readings.size() == 1, "results survive device destruction");
 
     // 不泵主线程队列，先让收包线程排入结果，再删除设备；上下文销毁撤销未交付调用。
     const auto countBefore = received.size();

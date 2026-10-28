@@ -1,5 +1,14 @@
 # 验证记录
 
+## 2026-10-28：官邸缓存六值、按包全量推送（用户定）
+
+- LaserDevice 按种子/放大模块各持一份六值缓存；完整报文先验证，再在主线程更新。每包有绘图寄存器时只发一次 telemetryReady，未回报项沿用旧值、从未回报项为 NaN。replyReady 只交非绘图寄存器及命令确认；纯状态包不触发绘图，没有跨包等待、更新掩码或自动查询。
+- 新增 41 项生产接收链验证：首包缺项占位、同包六项合并、部分更新沿用、已交出快照独立、模块隔离、重复寄存器末值生效、状态与确认不绘图、混合包分别交付、坏包不污染缓存、六个粘包分别产生完整快照、主线程交付及显式重新连接清空旧值。原回包测试适配两类信号，并继续检查非法报文不交付部分结果。
+- Windows MSVC 19.51 / Qt 6.11.2 与 Linux GCC 16.2.1 / Qt 6.12.0：Release 构建和四个公开头独立编译通过，无编译警告；两端 CTest 均 6/6 通过。协议 505、串口交付 7、环形容器 109、官邸回复 180、设备生命周期 47、绘图快照 41，共 889 项断言通过。
+- ChartCore 在其本地仓库同步收紧为完整六值入口，验证记录在该仓 README；激光器 QML 官邸及实际信号接线仍待实现。本轮串口测试使用替身，未连接激光器、未进行出光操作。主程序、simonly 和公共 Handle 运行逻辑未改，不推送。
+
+证据：Windows build/build-telemetry.log、build/test-telemetry.log；Linux ~/.cache/rayshining-ring-20261028/build-telemetry.log、test-telemetry.log。
+
 ## 2026-10-28：解析收回官邸、失败就地记日志（用户定）
 
 - 回复类型和语义解析移入 LaserDevice.h，删除 Reply.h、公开 decodeReply 及 variant<Reply, QString> 错误返回/转发。makeOnStream 返回的回调直接解析；失败处触发现有 Handle.logMessage 并返回，成功仍排队到主线程交出完整 Reply。格式映射收为类内私有静态函数，查询与解析共用。

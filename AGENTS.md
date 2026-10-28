@@ -1,5 +1,7 @@
 # 维护入口
 
+2026-10-28 最新（用户定）：绘图必须全量更新。LaserDevice 主线程按种子/放大模块各持唯一六值缓存，整包验证成功后再更新，未回报项沿用旧值、从未回报项为 NaN。每包局部 plotUpdated，有绘图项时整包处理结束只发一次 telemetryReady(RxTime, Module, QVariantMap)，六条曲线在同一时间戳同时追加；不传更新掩码、不跨包等待。六项分六包仍是六次全量通知，不能用缺项绘图代替对齐要求。非绘图寄存器及确认经 replyReady 交出，不另存状态；纯状态包不绘图。显式新连接成功先清空本轮缓存，Handle 自动重连沿用本轮缓存。图表不另存最新值，ChartCore 本地已同步全量入口；QML 官邸/轮询/控制发送仍后续。验证以 VALIDATION 最新记录为准，不推送。
+
 2026-10-28 最新（用户定）：枚举、回复类型和解析均收回 LaserDevice.h，删除独立回复文件与公开解码入口。makeOnStream 直接在收包回调中解析，失败处触发现有 Handle.logMessage 后返回，成功通过 replyReady 在主线程交出带 RxTime 的整份结构；不经错误字符串返回/薄转发。寄存器格式映射为类内私有静态函数。官邸直接继承 DeviceBase 并持有唯一 LaserHandle，不分族、不新增 Collector 或状态缓存。提供显式连接、关闭和寄存器查询；UI、出光控制入口及主程序装配仍后续。DeviceCore 固定 5c63ec5；HandleCore 固定版本不变。验证以 VALIDATION 最新记录为准。仍仅本地，不推送。
 
 2026-10-27：用户要求先建本地镭晟激光器官邸仓库，只做 CRC16、环形缓冲成帧及 SerialHandle 适配。UI/业务后续；暂不推送，不改主程序、simonly、旧 sim-ui。

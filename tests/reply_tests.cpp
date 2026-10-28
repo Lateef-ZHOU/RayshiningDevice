@@ -35,6 +35,7 @@ template <typename Predicate> bool until(Predicate ready)
 struct Receiver {
     QObject context;
     std::vector<Rayshining::Reply> replies;
+    std::vector<QVariantMap> telemetry;
     QStringList logs;
     bool markerReceived = false;
     Rayshining::LaserDevice device; // 首先销毁设备、等收包退出，再释放测试接收状态。
@@ -48,6 +49,8 @@ struct Receiver {
             else
                 replies.push_back(reply);
         });
+        QObject::connect(&device, &LaserDevice::telemetryReady, &context,
+                         [this](RxTime, Module, const QVariantMap &values) { telemetry.push_back(values); });
         QObject::connect(qobject_cast<LaserHandle *>(device.logSourceObject()), &LaserHandle::logMessage,
                          &context, [this](const QString &text) { logs.push_back(text); });
         require(device.open({"controlled", {}}) && until([this] {
@@ -56,7 +59,7 @@ struct Receiver {
     }
     std::optional<Rayshining::Reply> receive(const QByteArray &payload)
     {
-        replies.clear(); logs.clear(); markerReceived = false;
+        replies.clear(); telemetry.clear(); logs.clear(); markerReceived = false;
         auto frame = QByteArray("WHLS", 4) + payload;
         const auto crc = Rayshining::crc16(payload);
         frame.append(static_cast<char>(crc >> 8)); frame.append(static_cast<char>(crc)); frame.append('\x55');
@@ -64,8 +67,9 @@ struct Receiver {
         FakeSerialPort::enqueue(frame + Rayshining::encode(1, 0xb6, 4, {}));
         // 后续有效帧是交付屏障，同时验证坏业务帧未阻塞后续收包。
         require(until([this] { return markerReceived; }), "subsequent valid reply delivered");
-        require((replies.size() == 1 && logs.empty()) || (replies.empty() && logs.size() == 1),
-                "exactly one reply or one direct Handle diagnostic, no partial delivery");
+        require((replies.size() <= 1 && telemetry.size() <= 1 && (!replies.empty() || !telemetry.empty()) && logs.empty())
+                || (replies.empty() && telemetry.empty() && logs.size() == 1),
+                "at most one state reply and one snapshot, or one Handle diagnostic without partial delivery");
         return replies.empty() ? std::nullopt : std::optional(std::move(replies.front()));
     }
 };
@@ -76,7 +80,9 @@ int main(int argc, char **argv)
     QCoreApplication app(argc, argv);
     FakeSerialPort::reset();
     Receiver receiver;
-    const auto invalid = [&receiver](const QByteArray &data) { return !receiver.receive(data); };
+    const auto invalid = [&receiver](const QByteArray &data) {
+        return !receiver.receive(data) && receiver.telemetry.empty() && receiver.logs.size() == 1;
+    };
     using namespace Rayshining;
     const auto sample = hex("0000b10000489300000031353530940000002d414349950000002d360000960000008000006497000000800000c8980000008000012c99000000000000009a000000000000009b00000000000000");
     const auto decoded = receiver.receive(sample);
@@ -102,8 +108,11 @@ int main(int argc, char **argv)
     require(std::get<quint32>(measurements.readings[4].value) == 80, "power percentage");
     require(std::get<quint32>(measurements.readings[5].value) == 5, "width index");
     const std::array expected{24.f, 1.f, 2.f, 3.f, -25.f, 50.f};
+    const std::array keys{"voltage", "pa1Current", "pa2Current", "pa3Current", "laserTemperature", "mcuTemperature"};
+    require(measurements.readings.size() == 6 && receiver.telemetry.size() == 1,
+            "mixed packet separates six states from one complete telemetry snapshot");
     for (std::size_t i = 0; i < expected.size(); ++i)
-        require(std::get<float>(measurements.readings[i + 6].value) == expected[i], "IEEE float little endian");
+        require(receiver.telemetry.front().value(keys[i]).toDouble() == expected[i], "IEEE float little endian");
     for (const auto reg : {Register::Serial1, Register::Serial2, Register::Serial3, Register::Serial4}) {
         QByteArray data(8, '\0');
         qToLittleEndian<quint32>(static_cast<quint32>(reg), data.data());
