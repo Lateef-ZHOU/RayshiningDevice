@@ -1,5 +1,14 @@
 # 验证记录
 
+## 2026-10-28：解析收回官邸、失败就地记日志（用户定）
+
+- 回复类型和语义解析移入 LaserDevice.h，删除 Reply.h、公开 decodeReply 及 variant<Reply, QString> 错误返回/转发。makeOnStream 返回的回调直接解析；失败处触发现有 Handle.logMessage 并返回，成功仍排队到主线程交出完整 Reply。格式映射收为类内私有静态函数，查询与解析共用。
+- 原语义测试改经串口替身、真实成帧器及官邸回调执行；每个用例追加有效确认作为交付屏障，检查只产生一份结果或一条 Handle 诊断、无部分交付，并验证坏业务回包后仍能继续收包。类型、字节序、确认规则保持。原来直接调用解码器的主体截断检查退出此组，线上拆包与长度/CRC 拒绝仍由原 protocol 测试覆盖，不保留测试专用的公开解析口。
+- Windows MSVC 19.51 / Qt 6.11.2 与 Linux GCC 16.2.1 / Qt 6.12.0：Release 增量构建和四个公开头独立编译通过，无编译警告；CTest 两端均 5/5 通过。协议 505、串口交付 7、环形容器 109、官邸回复 179、设备生命周期 47，共 847 项断言通过。
+- 文档和构建清单已同步。没有修改协议规则、Handle、主程序或 UI；没有实物操作，不推送。
+
+证据：Windows build/build-inline-parser.log、build/build-inline-parser-final.log、build/test-inline-parser-final.log；Linux ~/.cache/rayshining-ring-20261028/ 下同名构建与测试日志。
+
 ## 2026-10-28：C++ 激光器官邸与回包解析
 
 - LaserDevice 直接使用 DeviceBase + 唯一 LaserHandle，未修改共享库、未添加设备族或空 Collector。DeviceCore 从远端按固定提交 5c63ec5c501d83a15daa65a41dca438ee4ff330f 拉取。

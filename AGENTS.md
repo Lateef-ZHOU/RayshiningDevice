@@ -1,6 +1,6 @@
 # 维护入口
 
-2026-10-28 最新：已实现 C++ LaserDevice 官邸，直接继承 DeviceBase 并持有 LaserHandle，不分族、不新增 Collector。makeOnStream 在收包线程调用 Reply.h 的 decodeReply，主线程通过 replyReady 交出带 RxTime 的整份结构；支持多寄存器和四类无数据确认，不缓存最新值。提供显式连接、关闭和寄存器查询；UI、出光控制入口及主程序装配仍后续。DeviceCore 固定 5c63ec5；HandleCore 固定版本不变。Windows/Linux 五组测试与五个独立头编译已通过，详见 VALIDATION。仍仅本地，不推送。
+2026-10-28 最新（用户定）：枚举、回复类型和解析均收回 LaserDevice.h，删除独立回复文件与公开解码入口。makeOnStream 直接在收包回调中解析，失败处触发现有 Handle.logMessage 后返回，成功通过 replyReady 在主线程交出带 RxTime 的整份结构；不经错误字符串返回/薄转发。寄存器格式映射为类内私有静态函数。官邸直接继承 DeviceBase 并持有唯一 LaserHandle，不分族、不新增 Collector 或状态缓存。提供显式连接、关闭和寄存器查询；UI、出光控制入口及主程序装配仍后续。DeviceCore 固定 5c63ec5；HandleCore 固定版本不变。验证以 VALIDATION 最新记录为准。仍仅本地，不推送。
 
 2026-10-27：用户要求先建本地镭晟激光器官邸仓库，只做 CRC16、环形缓冲成帧及 SerialHandle 适配。UI/业务后续；暂不推送，不改主程序、simonly、旧 sim-ui。
 
