@@ -1,5 +1,12 @@
 # 验证记录
 
+## 2026-10-28：状态收回右侧栏与串口选择统一（用户定）
+
+- 种子/放大的状态分别由 LaserStatus 收缩栏显示，左侧两个图窗直接使用 LaserTelemetryChart，删除混合状态与图表的 LaserMonitor 及 append/clear 转发。状态仍引用原有回报，不新增数据缓存或查询触发。
+- 串口改用网卡同款 ChoiceField，不可编辑；连接读取当前选项，刷新尽量保持同一端口。未修改 C++、协议、轮询或连接行为。
+- Windows Qt 6.11.2：增量 Release 和 RayshiningDevice_qmllint 通过，既有 QML 检查 1/1（12 项、含 8 秒离屏）通过。未新增镜像实现的测试，未重复协议及 Linux 全套。日志为 build/build-sidebar.log、build/build-sidebar-qml.log、build/test-sidebar.log。
+- 无编译/QML 警告；重新配置出现本机 Qt 可选 QmlAssetDownloaderPrivate 缺 Qt6TaskTree 提示，不影响本项目所用目标。主程序固定版本接入与实际布局检查记在主程序维护操作。本次仅本地提交，不推送。
+
 ## 2026-10-28：QML 官邸与主程序接入（用户定）
 
 - 新增种子/放大两个状态与趋势页、串口、显式发令和查询分区。Qt attached 对象保证页面唯一拥有具体后端；Reply 在原头内提供只读值适配。UI 不缓存待确认发送参数，不因读取回包、空图或测量值更新自动查询；B5/B6/B7 确认才补一次对应状态查询，B8 仅记确认。

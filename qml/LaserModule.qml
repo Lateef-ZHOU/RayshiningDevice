@@ -3,6 +3,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import Lidar.UI
+import Lidar.Charts
 
 ModulePage {
     id: root
@@ -15,7 +16,7 @@ ModulePage {
     readonly property string holder: internals.device.holder
     // 表单与回报分开；发令成功不预写设备状态。模块选择只控制后续发送。
     property int targetModule: LaserProtocol.Seed
-    property alias portName: portSelector.editText
+    readonly property string portName: portSelector.currentText
     property int widthIndex: 0
     property int frequencyKhz: 10
     property int powerPercent: 100
@@ -56,7 +57,7 @@ ModulePage {
     onIsOpenChanged: {
         if (isOpen) {
             seedReadings = ({}); amplifierReadings = ({})
-            seedMonitor.clear(); amplifierMonitor.clear()
+            seedChart.clear(); amplifierChart.clear()
             query(identityRegisters.concat(statusRegisters, measurementRegisters), false)
         }
     }
@@ -74,8 +75,8 @@ ModulePage {
     Connections {
         target: internals.device
         function onTelemetryReady(at, module, values): void {
-            if (module === LaserProtocol.Seed) seedMonitor.append(at, values)
-            else amplifierMonitor.append(at, values)
+            if (module === LaserProtocol.Seed) seedChart.append(at, values)
+            else amplifierChart.append(at, values)
         }
         function onReplyReady(at, reply): void {
             if (reply.command === LaserProtocol.ReadReply) {
@@ -92,25 +93,48 @@ ModulePage {
                 root.logMessage(qsTr("光开关切换已确认；协议未提供当前通道读口"))
         }
     }
+    component TelemetryPlot: LaserTelemetryChart {
+        configuration: ({temperature: {minimum: 0, maximum: 80}, current: {minimum: 0, maximum: 20}, voltage: {minimum: 0, maximum: 60}, windowSeconds: 120, capacity: 7200})
+    }
     mainPages: [Page {
         title: qsTr("种子模块")
-        contentItem: LaserMonitor { id: seedMonitor; readings: root.seedReadings; connected: root.isOpen }
+        contentItem: TelemetryPlot { id: seedChart }
     }, Page {
         title: qsTr("放大模块")
-        contentItem: LaserMonitor { id: amplifierMonitor; readings: root.amplifierReadings; connected: root.isOpen }
+        contentItem: TelemetryPlot { id: amplifierChart }
     }]
-    sections: [connection, control, queries]
+    sections: [connection, seedStatus, amplifierStatus, control, queries]
+    readonly property Section seedStatus: LaserStatus {
+        title: qsTr("种子模块状态")
+        readings: root.seedReadings
+        connected: root.isOpen
+    }
+    readonly property Section amplifierStatus: LaserStatus {
+        title: qsTr("放大模块状态")
+        readings: root.amplifierReadings
+        connected: root.isOpen
+    }
     readonly property Section connection: Section {
         title: qsTr("设备连接")
-        ComboBox {
-            id: portSelector
-            Layout.fillWidth: true
-            model: internals.ports
-            editable: true
+        FieldRow {
+            label: qsTr("串口")
+            ChoiceField {
+                id: portSelector
+                Layout.fillWidth: true
+                model: internals.ports
+                onCommitted: i => value = i
+            }
         }
         Label { text: "115200 · 8N1 · 无流控"; opacity: 0.6 }
         RowLayout {
-            Button { text: qsTr("刷新"); onClicked: internals.ports = internals.device.ports() }
+            Button {
+                text: qsTr("刷新")
+                onClicked: {
+                    const selected = root.portName
+                    internals.ports = internals.device.ports()
+                    portSelector.value = Math.max(0, internals.ports.indexOf(selected))
+                }
+            }
             Button { text: qsTr("连接"); onClicked: { if (internals.device.open(root.portName)) root.logMessage(qsTr("连接请求已提交")) } }
             Button { text: qsTr("断开"); onClicked: internals.device.close() }
         }
