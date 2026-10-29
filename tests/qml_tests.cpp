@@ -81,6 +81,11 @@ LaserModule {
     const QQmlListReference charts(page.get(), "mainPages");
     require(charts.isValid() && charts.count() == 1, "only seed chart page assembled");
     require(page->property("powerPercent").toInt() == 1, "power input starts at one percent");
+    auto *frequencySelector = page->findChild<QObject *>(QStringLiteral("frequencySelector"));
+    require(frequencySelector && !frequencySelector->property("editable").toBool()
+            && frequencySelector->property("count").toInt() == 3
+            && frequencySelector->property("currentValue").toInt() == 10,
+            "frequency uses a closed three-option menu, initially ten kHz");
     auto *widthSelector = page->findChild<QObject *>(QStringLiteral("pulseWidthSelector"));
     auto *powerReadback = page->findChild<QObject *>(QStringLiteral("powerReadback"));
     require(widthSelector && powerReadback, "width selector and power readback present");
@@ -102,6 +107,16 @@ LaserModule {
     auto values = page->property("seedReadings").value<QJSValue>().toVariant().toMap();
     require(values.value("128").toInt() == 12 && values.value("24").toInt() == 1, "seed replies update seed status");
     require(logs == 0, "read reply never triggers another query");
+    frequencySelector->setProperty("currentIndex", 0);
+    require(frequencySelector->property("currentValue").toInt() == 5, "first frequency is five kHz");
+    frequencySelector->setProperty("currentIndex", 1);
+    require(frequencySelector->property("currentValue").toInt() == 8 && logs == 0
+            && page->property("seedReadings").value<QJSValue>().toVariant().toMap() == values,
+            "choosing eight kHz neither sends a command nor changes the reported status");
+    Q_EMIT device->replyReady({}, Reply{Module::Seed, Command::ReadReply, 0, {{Register::Frequency, quint32(5)}}});
+    values = page->property("seedReadings").value<QJSValue>().toVariant().toMap();
+    require(values.value("128").toInt() == 5 && frequencySelector->property("currentValue").toInt() == 8 && logs == 0,
+            "reported frequency updates status without overriding the next requested frequency");
     Q_EMIT device->replyReady({}, Reply{Module::Amplifier, Command::ReadReply, 0, {{Register::Frequency, quint32(30)}}});
     require(page->property("seedReadings").value<QJSValue>().toVariant().toMap() == values,
         "amplifier replies cannot overwrite seed status");

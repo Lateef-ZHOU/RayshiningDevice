@@ -20,7 +20,6 @@ ModulePage {
     readonly property var selectedWidth: widthOptions[widthSelector.currentIndex]
     // 未取得可选列表时，查询和关光使用协议编号 0；出光必须先有有效选择。
     readonly property int widthIndex: selectedWidth ? selectedWidth.code : 0
-    property int frequencyKhz: 10
     property int powerPercent: 1
     property bool polling: true
     property int pollSeconds: 1
@@ -50,7 +49,7 @@ ModulePage {
             logMessage(qsTr("请先查询脉宽列表，并选择设备支持的脉宽"))
             return false
         }
-        const sent = internals.device.startEmission(LaserProtocol.Seed, widthIndex, frequencyKhz, powerPercent, selectedWidth.value)
+        const sent = internals.device.startEmission(LaserProtocol.Seed, widthIndex, frequencySelector.currentValue, powerPercent, selectedWidth.value)
         if (sent) logMessage(qsTr("种子：设置参数并出光命令已发送"))
         return sent
     }
@@ -184,7 +183,14 @@ ModulePage {
         }
         RowLayout {
             Label { text: qsTr("频率 (kHz)") }
-            IntField { Layout.fillWidth: true; minimum: 1; maximum: 2147483647; value: root.frequencyKhz; onCommitted: v => root.frequencyKhz = v }
+            ComboBox {
+                id: frequencySelector
+                objectName: "frequencySelector"
+                Layout.fillWidth: true
+                model: [5, 8, 10]
+                currentIndex: 2
+                editable: false
+            }
         }
         RowLayout {
             Label { text: qsTr("功率 (%)") }
@@ -194,7 +200,6 @@ ModulePage {
             Button { text: qsTr("设置参数并出光"); enabled: root.isOpen && !!root.selectedWidth; onClicked: root.sendEmission() }
             Button { text: qsTr("关光"); enabled: root.isOpen; onClicked: { if (internals.device.stopEmission(LaserProtocol.Seed, root.widthIndex)) root.logMessage(qsTr("关光命令已发送")) } }
         }
-        Label { Layout.fillWidth: true; wrapMode: Text.Wrap; text: qsTr("频率须符合设备允许范围。"); opacity: 0.6 }
         RowLayout {
             ComboBox { model: [qsTr("内控"), qsTr("外控")]; onActivated: root.internalMode = currentIndex === 0 }
             Button { text: qsTr("切换模式"); enabled: root.isOpen; onClicked: { if (internals.device.setControlMode(root.internalMode)) root.logMessage(qsTr("模式切换命令已发送")) } }
