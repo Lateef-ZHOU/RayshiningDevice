@@ -17,14 +17,6 @@ ModulePage {
     // 当前设备只使用种子地址；表单与回报分开，发令成功不预写设备状态。
     readonly property string portName: portSelector.currentText
     property var widthOptions: []
-    readonly property var selectedWidth: widthOptions[widthSelector.currentIndex]
-    // 未取得可选列表时，查询和关光使用协议编号 0；出光必须先有有效选择。
-    readonly property int widthIndex: selectedWidth ? selectedWidth.code : 0
-    property int powerPercent: 1
-    property bool polling: true
-    property int pollSeconds: 1
-    property bool internalMode: true
-    property int opticalChannel: 0
     property var seedReadings: ({})
     readonly property var measurementRegisters: [LaserProtocol.LaserTemperature, LaserProtocol.McuTemperature,
         LaserProtocol.PA1Current, LaserProtocol.PA2Current, LaserProtocol.PA3Current, LaserProtocol.Voltage]
@@ -40,16 +32,18 @@ ModulePage {
         readonly property var ports: device.ports()
     }
     function query(registers, manual) {
-        const sent = internals.device.readRegisters(LaserProtocol.Seed, widthIndex, registers)
+        const width = widthOptions[widthSelector.currentIndex]
+        const sent = internals.device.readRegisters(LaserProtocol.Seed, width ? width.code : 0, registers)
         if (sent && manual) logMessage(qsTr("种子：查询已发送"))
         return sent
     }
     function sendEmission() {
-        if (!selectedWidth) {
+        const width = widthOptions[widthSelector.currentIndex]
+        if (!width) {
             logMessage(qsTr("请先查询脉宽列表，并选择设备支持的脉宽"))
             return false
         }
-        const sent = internals.device.startEmission(LaserProtocol.Seed, widthIndex, frequencySelector.currentValue, powerPercent, selectedWidth.value)
+        const sent = internals.device.startEmission(LaserProtocol.Seed, width.code, frequencySelector.currentValue, powerInput.value, width.value)
         if (sent) logMessage(qsTr("种子：设置参数并出光命令已发送"))
         return sent
     }
@@ -80,7 +74,8 @@ ModulePage {
         if (Object.keys(readings).length > 0)
             seedReadings = Object.assign({}, seedReadings, readings)
         if (!optionsChanged) return
-        const previousCode = selectedWidth ? selectedWidth.code : -1
+        const previousWidth = widthOptions[widthSelector.currentIndex]
+        const previousCode = previousWidth ? previousWidth.code : -1
         options.sort((a, b) => a.code - b.code)
         widthOptions = options
         const position = options.findIndex(option => option.code === previousCode)
@@ -89,16 +84,17 @@ ModulePage {
     onIsOpenChanged: {
         widthOptions = []
         widthSelector.currentIndex = -1
+        seedReadings = ({})
         if (isOpen) {
-            seedReadings = ({})
             seedChart.clear()
             query(identityRegisters.concat(statusRegisters, measurementRegisters), false)
         }
     }
     Timer {
-        interval: root.pollSeconds * 1000
+        objectName: "statusTimer"
+        interval: 500
         repeat: true
-        running: root.polling && root.isOpen
+        running: root.isOpen
         // 每轮只读取种子状态和测量值；读取回包不会触发响应式查询。
         onTriggered: root.query(root.measurementRegisters.concat(root.statusRegisters), false)
     }
@@ -122,8 +118,6 @@ ModulePage {
                 internals.device.readRegisters(LaserProtocol.Seed, reply.widthIndex, root.statusRegisters)
             else if (reply.command === LaserProtocol.ModeReply)
                 internals.device.readRegisters(LaserProtocol.Seed, 0, [LaserProtocol.ControlMode])
-            else if (reply.command === LaserProtocol.ChannelReply)
-                root.logMessage(qsTr("光开关切换已确认；协议未提供当前通道读口"))
         }
     }
     mainPages: [Page {
@@ -133,7 +127,7 @@ ModulePage {
             configuration: ({temperature: {minimum: 0, maximum: 80}, current: {minimum: 0, maximum: 5}, voltage: {minimum: 15, maximum: 30}, windowSeconds: 120, capacity: 7200})
         }
     }]
-    sections: [connection, seedStatus, control, queries]
+    sections: [connection, seedStatus, control]
     readonly property Section seedStatus: LaserStatus {
         title: qsTr("种子模块状态")
         readings: root.seedReadings
@@ -171,13 +165,11 @@ ModulePage {
                 Layout.fillWidth: true
                 model: root.widthOptions.map(option => option.value + " ns")
                 editable: false
-                enabled: count > 0
                 displayText: currentIndex >= 0 ? currentText : qsTr("暂无可选脉宽")
             }
             Button {
                 objectName: "refreshPulseWidths"
                 text: qsTr("更新")
-                enabled: root.isOpen
                 onClicked: root.query(root.widthRegisters, true)
             }
         }
@@ -194,32 +186,30 @@ ModulePage {
         }
         RowLayout {
             Label { text: qsTr("功率 (%)") }
-            SpinBox { from: 0; to: 100; editable: true; value: root.powerPercent; onValueModified: root.powerPercent = value }
+            IntField {
+                id: powerInput
+                objectName: "powerInput"
+                Layout.fillWidth: true
+                minimum: 0
+                maximum: 100
+                value: 1
+                onCommitted: v => value = v
+            }
         }
         RowLayout {
-            Button { text: qsTr("设置参数并出光"); enabled: root.isOpen && !!root.selectedWidth; onClicked: root.sendEmission() }
-            Button { text: qsTr("关光"); enabled: root.isOpen; onClicked: { if (internals.device.stopEmission(LaserProtocol.Seed, root.widthIndex)) root.logMessage(qsTr("关光命令已发送")) } }
+            Button { text: qsTr("设置参数并出光"); onClicked: root.sendEmission() }
+            Button {
+                text: qsTr("关光")
+                onClicked: {
+                    const width = root.widthOptions[widthSelector.currentIndex]
+                    if (internals.device.stopEmission(LaserProtocol.Seed, width ? width.code : 0))
+                        root.logMessage(qsTr("关光命令已发送"))
+                }
+            }
         }
         RowLayout {
-            ComboBox { model: [qsTr("内控"), qsTr("外控")]; onActivated: root.internalMode = currentIndex === 0 }
-            Button { text: qsTr("切换模式"); enabled: root.isOpen; onClicked: { if (internals.device.setControlMode(root.internalMode)) root.logMessage(qsTr("模式切换命令已发送")) } }
-        }
-        RowLayout {
-            Label { text: qsTr("光开关通道") }
-            SpinBox { from: 0; to: 3; value: root.opticalChannel; onValueModified: root.opticalChannel = value }
-            Button { text: qsTr("切换"); enabled: root.isOpen; onClicked: { if (internals.device.setOpticalChannel(root.opticalChannel)) root.logMessage(qsTr("光开关切换命令已发送")) } }
-        }
-    }
-    readonly property Section queries: Section {
-        title: qsTr("状态查询")
-        RowLayout {
-            Button { text: qsTr("状态与测量"); enabled: root.isOpen; onClicked: root.query(root.statusRegisters.concat(root.measurementRegisters), true) }
-            Button { text: qsTr("型号与序列号"); enabled: root.isOpen; onClicked: root.query(root.identityRegisters, true) }
-        }
-        CheckBox { text: qsTr("定时查询种子模块"); checked: root.polling; onClicked: root.polling = checked }
-        RowLayout {
-            Label { text: qsTr("间隔 (s)") }
-            SpinBox { from: 1; to: 60; value: root.pollSeconds; onValueModified: root.pollSeconds = value }
+            Button { text: qsTr("切换为内控"); onClicked: { if (internals.device.setControlMode(true)) root.logMessage(qsTr("切换内控命令已发送")) } }
+            Button { text: qsTr("切换为外控"); onClicked: { if (internals.device.setControlMode(false)) root.logMessage(qsTr("切换外控命令已发送")) } }
         }
     }
 }

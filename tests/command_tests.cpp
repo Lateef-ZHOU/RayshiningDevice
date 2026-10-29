@@ -50,9 +50,8 @@ int main(int argc, char **argv) {
             && qFromLittleEndian<quint32>(selectedFrame.constData() + HeaderSize + 4) == 10,
             "wire keeps width code five, actual 915 ns and unscaled ten-percent request");
     require(device.stopEmission(Module::Amplifier, 5) && FakeSerialPort::writes().back() == encode(1, 0x36, 5, {}), "targeted stop");
-    require(device.setOpticalChannel(3) && FakeSerialPort::writes().back() == encode(0, 0x38, 0, QByteArray::fromHex("0300000000000000")), "channel fixed seed address");
     const auto count = FakeSerialPort::writes().size();
-    require(!device.setOpticalChannel(4) && !device.stopEmission(Module::Seed, 256), "no truncation of invalid command parameters");
+    require(!device.stopEmission(Module::Seed, 256), "no truncation of invalid command parameters");
     require(!device.readRegisters(Module::Seed, -1, {Register::Voltage}), "invalid query width");
     require(!device.startEmission(Module::Seed, 0, 0, 100, 100), "zero frequency rejected");
     require(!device.startEmission(Module::Seed, 0, 10, 101, 100), "power above 100 rejected");
@@ -61,7 +60,19 @@ int main(int argc, char **argv) {
     auto lock = std::make_shared<DeviceLock>(QStringLiteral("test"));
     require(device.tryLock(lock), "lock held");
     require(!device.stopEmission(Module::Seed, 0), "manual command respects lock");
-    device.releaseLock(lock);
+    const auto beforeClose = FakeSerialPort::writes().size();
     device.close();
+    require(!device.isOpen() && FakeSerialPort::livePorts() == 0, "close releases the connection synchronously");
+    require(FakeSerialPort::writes().size() == beforeClose + 1 && FakeSerialPort::writes().back() == encode(0, 0x36, 0, {}),
+            "forced close sends exactly one seed off command before stopping, even while locked");
+    require(until([&] { return !device.isLocked(); }), "disconnect notification releases lock");
+    device.close();
+    require(FakeSerialPort::writes().size() == beforeClose + 1, "already disconnected close cannot send another frame");
+    require(device.open(SerialPortInfo{"controlled", {}}) && until([&] { return device.isOpen(); }), "reopen for failed close write");
+    FakeSerialPort::writeResult(SP_ERR_FAIL);
+    const auto attempts = FakeSerialPort::writesStarted();
+    device.close();
+    require(FakeSerialPort::writesStarted() == attempts + 1 && !device.isOpen() && FakeSerialPort::livePorts() == 0,
+            "failed off write is tried once and does not prevent disconnection");
     std::cout << checks << " command checks passed\n";
 }

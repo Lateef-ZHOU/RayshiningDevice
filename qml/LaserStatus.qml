@@ -40,7 +40,7 @@ Section {
         Label { text: qsTr("脉宽号：") + root.value(LaserProtocol.WidthIndex, "") }
     }
     // 整行文字由 Section 的纵向布局分配宽度，不受上方两列短状态的列宽约束。
-    Label { text: root.connected ? qsTr("设备回报值") : qsTr("未连接 · 历史回报"); opacity: 0.6 }
+    Label { text: root.connected ? qsTr("设备回报值") : qsTr("未连接"); opacity: 0.6 }
     Label { Layout.fillWidth: true; wrapMode: Text.Wrap; text: qsTr("报警：") + root.alarms(); color: root.readings[LaserProtocol.Alarms] ? "#f2a56c" : palette.windowText }
     Label { Layout.fillWidth: true; wrapMode: Text.Wrap; text: qsTr("型号：") + root.identity([LaserProtocol.Model1, LaserProtocol.Model2, LaserProtocol.Model3]); opacity: 0.7 }
     Label { Layout.fillWidth: true; wrapMode: Text.Wrap; text: qsTr("SN：") + root.identity([LaserProtocol.Serial1, LaserProtocol.Serial2, LaserProtocol.Serial3, LaserProtocol.Serial4]); opacity: 0.7 }

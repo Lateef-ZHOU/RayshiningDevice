@@ -135,7 +135,12 @@ public:
         for (const auto &port : availablePorts()) names.append(port.portName);
         return names;
     }
-    Q_INVOKABLE void close() { handle_.stop(); }
+    Q_INVOKABLE void close()
+    {
+        // 断开前向当前型号的种子地址尝试一次关光；发送失败也继续关闭，不等待回包。
+        (void)handle_.send(encode(static_cast<quint16>(Module::Seed), static_cast<quint8>(Command::Stop), 0, {}));
+        handle_.stop();
+    }
 
     Q_INVOKABLE bool readRegisters(Module module, int width, const QList<Register> &addresses)
     {
@@ -176,15 +181,6 @@ public:
     {
         QByteArray data(8, '\0'); data[0] = internal ? '\1' : '\0';
         return sendCommand(Module::Seed, Command::Mode, 0, data);
-    }
-    Q_INVOKABLE bool setOpticalChannel(int channel)
-    {
-        if (channel < 0 || channel > 3) {
-            Q_EMIT handle_.logMessage(QStringLiteral("光开关通道须为 0..3，未发送"));
-            return false;
-        }
-        QByteArray data(8, '\0'); data[0] = static_cast<char>(channel);
-        return sendCommand(Module::Seed, Command::Channel, 0, data);
     }
 
 Q_SIGNALS:
