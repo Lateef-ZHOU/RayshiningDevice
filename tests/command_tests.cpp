@@ -31,6 +31,12 @@ int main(int argc, char **argv) {
     require(FakeSerialPort::writes().back() == encode(1, 0x35, 1, QByteArray::fromHex("0a00000050000000000000c8")), "frequency power little endian and width big endian");
     require(device.startEmission(Module::Seed, 1, 10, 80, 200), "seed emission");
     require(FakeSerialPort::writes().back() == QByteArray::fromHex("57484c5300003501000c0a00000050000000000000c8dd6a55"), "seed uses requested power and matches document 80 percent vector");
+    for (const int frequency : {1, 5, 8, 9, 10, 12, 20}) {
+        require(device.startEmission(Module::Seed, 0, frequency, 1, 200), "frequency request accepted");
+        const auto frame = FakeSerialPort::writes().back();
+        require(qFromLittleEndian<quint32>(frame.constData() + HeaderSize) == static_cast<quint32>(frequency),
+                "requested kHz is sent unchanged, without five/ten-kHz quantization");
+    }
     for (const int power : {0, 1, 37, 100}) {
         require(device.startEmission(Module::Seed, 1, 10, power, 200), "seed power range accepted");
         const auto frame = FakeSerialPort::writes().back();

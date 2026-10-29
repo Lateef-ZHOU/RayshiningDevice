@@ -6,6 +6,8 @@
 #include <QQmlEngine>
 #include <QQmlListReference>
 #include <QQuickWindow>
+#include <QQuickItem>
+#include <QThread>
 #include <QTimer>
 #include <QDebug>
 #include <QtQml/QQmlExtensionPlugin>
@@ -20,6 +22,45 @@ void require(bool v, const char *text) { ++checks; if (!v) { qCritical() << text
 int main(int argc, char **argv) {
     QGuiApplication app(argc, argv);
     QQmlEngine engine;
+    {
+        QQuickWindow window;
+        window.resize(400, 500);
+        QQmlComponent status(&engine);
+        status.setData(R"QML(import QtQuick
+import Lidar.Rayshining
+LaserStatus {
+    width: 400; height: implicitHeight; connected: true
+    readings: ({"24": 1, "128": 5, "129": 2, "130": 0, "7": 1024, "132": 0,
+        "147": "1550", "148": "-ACI", "149": "-MP",
+        "16": "1550", "17": "0300", "18": "MN26", "160": "0011"})
+}
+)QML", QUrl());
+        std::unique_ptr<QObject> section(status.create());
+        require(bool(section), "status layout creates production component");
+        auto *item = qobject_cast<QQuickItem *>(section.get());
+        item->setParentItem(window.contentItem());
+        window.show();
+        auto readings = section->property("readings").value<QJSValue>().toVariant().toMap();
+        qreal serialWidth = 0;
+        for (const int frequency : {1, 5, 8, 9, 10, 12, 20, 5}) {
+            readings["128"] = frequency;
+            section->setProperty("readings", readings);
+            for (int i = 0; i < 50; ++i) { QCoreApplication::processEvents(); QThread::msleep(2); }
+            for (auto *label : section->findChildren<QQuickItem *>()) {
+                const auto text = label->property("text").toString();
+                if (text.startsWith(QStringLiteral("频率：")))
+                    require(text == QStringLiteral("频率：%1 kHz").arg(frequency), "UI shows returned kHz unchanged");
+                if (text.startsWith(QStringLiteral("SN"))) {
+                    require(text == QStringLiteral("SN：15500300MN260011") && label->property("lineCount").toInt() == 1,
+                            "complete serial fits one line in the normal sidebar");
+                    require(serialWidth == 0 || qFuzzyCompare(label->width(), serialWidth),
+                            "serial width does not depend on frequency digit count");
+                    serialWidth = label->width();
+                }
+            }
+        }
+        require(serialWidth > 0, "serial readback was checked");
+    }
     QQmlComponent component(&engine);
     component.setData(R"QML(import QtQuick
 import Lidar.Rayshining

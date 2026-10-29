@@ -105,7 +105,7 @@ int main(int argc, char **argv)
     require(std::get<quint16>(measurements.readings[1].value) == 0x8100, "alarm bits retained");
     require(std::get<EmissionState>(measurements.readings[2].value) == EmissionState::On, "emission enum");
     require(std::get<quint32>(measurements.readings[3].value) == 0x12345678, "little endian uint32");
-    require(std::get<quint32>(measurements.readings[4].value) == 80, "power percentage");
+    require(std::get<quint32>(measurements.readings[4].value) == 80, "raw power register retained");
     require(std::get<quint32>(measurements.readings[5].value) == 5, "width index");
     const std::array expected{24.f, 1.f, 2.f, 3.f, -25.f, 50.f};
     const std::array keys{"voltage", "pa1Current", "pa2Current", "pa3Current", "laserTemperature", "mcuTemperature"};
@@ -120,6 +120,14 @@ int main(int argc, char **argv)
         const auto read = receiver.receive(body(0, 0xb1, 0, data)).value().readings[0];
         require(read.address == reg && std::get<TextWord>(read.value) == TextWord{0,'W','H','\xff'},
                 "serial fragments are owned raw bytes");
+    }
+    for (const quint32 frequency : {1u, 5u, 8u, 9u, 10u, 12u, 20u}) {
+        QByteArray data(8, '\0');
+        qToLittleEndian<quint32>(static_cast<quint32>(Register::Frequency), data.data());
+        qToLittleEndian<quint32>(frequency, data.data() + 4);
+        const auto parsed = receiver.receive(body(0, 0xb1, 0, data)).value();
+        require(parsed.readings.size() == 1 && std::get<quint32>(parsed.readings[0].value) == frequency,
+                "frequency reply preserves uint32 kHz without rounding or scaling");
     }
     for (quint8 command : {0xb5, 0xb6, 0xb7, 0xb8}) {
         const auto ack = receiver.receive(body(0, command, 0)).value();

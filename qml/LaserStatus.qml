@@ -38,9 +38,10 @@ Section {
         }
         Label { text: qsTr("模式：") + (root.readings[LaserProtocol.ControlMode] === undefined ? "—" : (root.readings[LaserProtocol.ControlMode] & 0x400) ? qsTr("内控") : qsTr("外控")) }
         Label { text: qsTr("脉宽号：") + root.value(LaserProtocol.WidthIndex, "") }
-        Label { Layout.columnSpan: 2; text: root.connected ? qsTr("设备回报值") : qsTr("未连接 · 历史回报"); opacity: 0.6 }
-        Label { Layout.columnSpan: 2; Layout.fillWidth: true; wrapMode: Text.Wrap; text: qsTr("报警：") + root.alarms(); color: root.readings[LaserProtocol.Alarms] ? "#f2a56c" : palette.windowText }
-        Label { Layout.columnSpan: 2; Layout.fillWidth: true; wrapMode: Text.Wrap; text: qsTr("型号：") + root.identity([LaserProtocol.Model1, LaserProtocol.Model2, LaserProtocol.Model3]); opacity: 0.7 }
-        Label { Layout.columnSpan: 2; Layout.fillWidth: true; wrapMode: Text.Wrap; text: qsTr("SN：") + root.identity([LaserProtocol.Serial1, LaserProtocol.Serial2, LaserProtocol.Serial3, LaserProtocol.Serial4]); opacity: 0.7 }
     }
+    // 整行文字由 Section 的纵向布局分配宽度，不受上方两列短状态的列宽约束。
+    Label { text: root.connected ? qsTr("设备回报值") : qsTr("未连接 · 历史回报"); opacity: 0.6 }
+    Label { Layout.fillWidth: true; wrapMode: Text.Wrap; text: qsTr("报警：") + root.alarms(); color: root.readings[LaserProtocol.Alarms] ? "#f2a56c" : palette.windowText }
+    Label { Layout.fillWidth: true; wrapMode: Text.Wrap; text: qsTr("型号：") + root.identity([LaserProtocol.Model1, LaserProtocol.Model2, LaserProtocol.Model3]); opacity: 0.7 }
+    Label { Layout.fillWidth: true; wrapMode: Text.Wrap; text: qsTr("SN：") + root.identity([LaserProtocol.Serial1, LaserProtocol.Serial2, LaserProtocol.Serial3, LaserProtocol.Serial4]); opacity: 0.7 }
 }
