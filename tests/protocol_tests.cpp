@@ -52,8 +52,8 @@ int main(int argc, char **argv)
     for (std::size_t i = 0; i < examples.size(); ++i) {
         const auto &frame = examples[i];
         require(validFrame(frame), "document frame CRC/length");
-        require(encode(readBe16(frame[4], frame[5]), static_cast<unsigned char>(frame[6]),
-                       static_cast<unsigned char>(frame[7]), QByteArrayView(frame).sliced(10, frame.size()-13)) == frame,
+        require(encode(makeBody(readBe16(frame[4], frame[5]), static_cast<unsigned char>(frame[6]),
+                       static_cast<unsigned char>(frame[7]), QByteArrayView(frame).sliced(10, frame.size()-13))) == frame,
                 "document frame exact encoding");
         for (qsizetype split = 0; split <= frame.size(); ++split) {
             Receiver r;
@@ -78,22 +78,22 @@ int main(int argc, char **argv)
         Receiver r; r.feed(bad + good);
         require(r.bodies == std::vector<QByteArray>{goodBody}, "bad header/body/CRC/tail resync");
     }
-    auto nested = encode(0, 0xb1, 0, good); nested[nested.size()-1] = 0;
+    auto nested = encode(makeBody(0, 0xb1, 0, good)); nested[nested.size()-1] = 0;
     Receiver inner; inner.feed(nested);
     require(inner.bodies == std::vector<QByteArray>{goodBody}, "bad outer frame preserves inner frame");
-    const auto special = encode(1, 0xb1, 5, QByteArray("WHLS\x55WHLS\x55", 10));
+    const auto special = encode(makeBody(1, 0xb1, 5, QByteArray("WHLS\x55WHLS\x55", 10)));
     Receiver embedded; embedded.feed(special);
     require(embedded.bodies == std::vector<QByteArray>{hex("0001b105000a") + QByteArray("WHLS\x55WHLS\x55", 10)},
             "strip only outer framing and preserve address command width length and payload");
     Receiver prefix; prefix.feed("junkWH"); prefix.feed(good.sliced(2));
     require(prefix.bodies == std::vector<QByteArray>{goodBody}, "partial header across reads");
-    const auto maximum = encode(1, 0xb1, 0, QByteArray(static_cast<qsizetype>(MaxDataSize), '\x55'));
+    const auto maximum = encode(makeBody(1, 0xb1, 0, QByteArray(static_cast<qsizetype>(MaxDataSize), '\x55')));
     require(maximum.size() == static_cast<qsizetype>(MaxFrameSize), "maximum size");
     Receiver wrap; wrap.feed(QByteArray(static_cast<qsizetype>(MaxFrameSize)-7, 'x'));
     wrap.feed(maximum + good + maximum);
     const auto maximumBody = hex("0001b100ffff") + QByteArray(static_cast<qsizetype>(MaxDataSize), '\x55');
     require(wrap.bodies == std::vector<QByteArray>{maximumBody, goodBody, maximumBody}, "ring wrap and maximum frames");
-    require(encode(0, 0x31, 0, QByteArray(65536, 'x')).isEmpty(), "oversize payload rejected");
+    require(encode(makeBody(0, 0x31, 0, QByteArray(65536, 'x'))).isEmpty(), "oversize payload rejected");
     require(!validFrame(good + good), "validFrame rejects trailing frame");
     auto lengthBad = good; lengthBad[9] = 1;
     Receiver length; length.feed(lengthBad + good);
@@ -117,8 +117,8 @@ int main(int argc, char **argv)
       QString diagnostic;
       QObject::connect(&handle, &LaserHandle::logMessage, &app,
                        [&diagnostic](const QString &message) { diagnostic = message; });
-      require(!handle.send("broken") && diagnostic.contains(QStringLiteral("CRC")), "TX rejects malformed frame");
+      require(!handle.send("broken") && diagnostic.contains(QStringLiteral("主体长度")), "TX rejects malformed body");
       diagnostic.clear();
-      require(!handle.send(good) && diagnostic.contains(QStringLiteral("未连接")), "valid TX reaches serial transport"); }
+      require(!handle.send(goodBody) && diagnostic.contains(QStringLiteral("未连接")), "valid TX reaches serial transport"); }
     std::cout << checks << " checks passed\n";
 }

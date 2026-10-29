@@ -28,7 +28,7 @@ int main(int argc, char **argv) {
     require(device.setControlMode(true), "internal mode sent");
     require(FakeSerialPort::writes().back() == QByteArray::fromHex("57484c53000037000008010000000000000086b855"), "document internal vector");
     require(device.startEmission(Module::Amplifier, 1, 10, 80, 200), "amplifier emission");
-    require(FakeSerialPort::writes().back() == encode(1, 0x35, 1, QByteArray::fromHex("0a00000050000000000000c8")), "frequency power little endian and width big endian");
+    require(FakeSerialPort::writes().back() == encode(makeBody(1, 0x35, 1, QByteArray::fromHex("0a00000050000000000000c8"))), "frequency power little endian and width big endian");
     require(device.startEmission(Module::Seed, 1, 10, 80, 200), "seed emission");
     require(FakeSerialPort::writes().back() == QByteArray::fromHex("57484c5300003501000c0a00000050000000000000c8dd6a55"), "seed uses requested power and matches document 80 percent vector");
     for (const int frequency : {1, 5, 8, 9, 10, 12, 20}) {
@@ -49,7 +49,7 @@ int main(int argc, char **argv) {
             && qFromBigEndian<quint32>(selectedFrame.constData() + HeaderSize + 8) == 915
             && qFromLittleEndian<quint32>(selectedFrame.constData() + HeaderSize + 4) == 10,
             "wire keeps width code five, actual 915 ns and unscaled ten-percent request");
-    require(device.stopEmission(Module::Amplifier, 5) && FakeSerialPort::writes().back() == encode(1, 0x36, 5, {}), "targeted stop");
+    require(device.stopEmission(Module::Amplifier, 5) && FakeSerialPort::writes().back() == encode(makeBody(1, 0x36, 5, {})), "targeted stop");
     const auto count = FakeSerialPort::writes().size();
     require(!device.stopEmission(Module::Seed, 256), "no truncation of invalid command parameters");
     require(!device.readRegisters(Module::Seed, -1, {Register::Voltage}), "invalid query width");
@@ -66,7 +66,7 @@ int main(int argc, char **argv) {
     const auto beforeClose = FakeSerialPort::writes().size();
     device.close();
     require(!device.isOpen() && FakeSerialPort::livePorts() == 0, "close releases the connection synchronously");
-    require(FakeSerialPort::writes().size() == beforeClose + 1 && FakeSerialPort::writes().back() == encode(0, 0x36, 0, {}),
+    require(FakeSerialPort::writes().size() == beforeClose + 1 && FakeSerialPort::writes().back() == encode(makeBody(0, 0x36, 0, {})),
             "forced close sends exactly one seed off command before stopping, even while locked");
     require(until([&] { return !device.isLocked(); }), "disconnect notification releases lock");
     device.close();

@@ -46,22 +46,35 @@ inline constexpr std::size_t MaxFrameSize = MaxDataSize + MinFrameSize;
         && crc16(bytes.sliced(4, size - 7)) == readBe16(bytes[size - 3], bytes[size - 2]);
 }
 
-// 数据区原样封装；寄存器、脉宽等混合字节序归型号业务，不由成帧层解释。
-[[nodiscard]] inline QByteArray encode(std::uint16_t address, unsigned char command,
+// 官邸只组主体；寄存器、脉宽等混合字节序归型号业务，不由 Handle 解释。
+[[nodiscard]] inline QByteArray makeBody(std::uint16_t address, unsigned char command,
                                        unsigned char width, QByteArrayView data)
 {
     if (data.size() > static_cast<qsizetype>(MaxDataSize))
         return {};
+    QByteArray body;
+    body.reserve(data.size() + static_cast<qsizetype>(HeaderSize - FrameHeadSize));
+    body.append(static_cast<char>(address >> 8));
+    body.append(static_cast<char>(address));
+    body.append(static_cast<char>(command));
+    body.append(static_cast<char>(width));
+    body.append(static_cast<char>(data.size() >> 8));
+    body.append(static_cast<char>(data.size()));
+    body.append(data.data(), data.size());
+    return body;
+}
+
+// 上下行共用主体边界：地址(2)、命令(1)、脉宽号(1)、长度(2)、数据(N)。
+// 仅校验结构；未知地址/命令的业务含义交给官邸。
+[[nodiscard]] inline QByteArray encode(QByteArrayView body)
+{
+    constexpr auto metadataSize = static_cast<qsizetype>(HeaderSize - FrameHeadSize);
+    if (body.size() < metadataSize || body.size() != metadataSize + readBe16(body[4], body[5]))
+        return {};
     QByteArray frame("WHLS", 4);
-    frame.reserve(data.size() + static_cast<qsizetype>(MinFrameSize));
-    frame.append(static_cast<char>(address >> 8));
-    frame.append(static_cast<char>(address));
-    frame.append(static_cast<char>(command));
-    frame.append(static_cast<char>(width));
-    frame.append(static_cast<char>(data.size() >> 8));
-    frame.append(static_cast<char>(data.size()));
-    frame.append(data.data(), data.size());
-    const auto crc = crc16(QByteArrayView(frame).sliced(4));
+    frame.reserve(body.size() + static_cast<qsizetype>(FrameHeadSize + FrameTailSize));
+    frame.append(body.data(), body.size());
+    const auto crc = crc16(body);
     frame.append(static_cast<char>(crc >> 8));
     frame.append(static_cast<char>(crc));
     frame.append('\x55');

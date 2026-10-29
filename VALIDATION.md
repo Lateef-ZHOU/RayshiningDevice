@@ -1,5 +1,13 @@
 # 验证记录
 
+## 2026-10-29：Handle 下行统一主体边界（用户定）
+
+- 官邸 makeBody 只生成地址/命令/脉宽号/长度/数据；LaserHandle 检查结构并补 WHLS、CRC16 和 55。上行交付同格式主体，业务解析与线上字节不变，删除旧的四参数完整帧入口。
+- Windows Qt 6.11.2 / MSVC Release 和四个公开头编译通过，CTest 8/8（含实际 QML）通过。新增非法主体、短包、多余字节、超长与完整帧误传拒绝，检查未触发串口写；空数据命令与固定 CRC 字节比对通过。既有文档字节向量、半帧/粘包/重同步与官邸发令链继续通过。
+- Linux ArchHFNL Qt 6.12.0 / GCC Release、四头编译及 CTest 8/8 通过，无编译警告。首次同步遗漏最新 qml 文件造成界面测试失败，补齐当前源码后通过；未修改业务逻辑规避断言。
+- 证据：Windows build/build-body-tx.log、test-body-tx.log；Linux ~/.cache/lidar-connection-20261029/laser-body-tx-build.log、laser-body-tx-test.log。全部串口收发验证使用替身，没有打开实物或发送出光命令。本轮仅本地提交，未推送或发布 Release；主程序本机源码覆盖验证另记在其维护说明。
+
+
 ## 2026-10-29：五项状态统一字重（用户定）
 
 - 删除出光和模式数值的单独加粗，五项标题/数值统一沿用 StatusText 的 14 px 普通字重，包括未回报的“—”。没有数据或接线改动。

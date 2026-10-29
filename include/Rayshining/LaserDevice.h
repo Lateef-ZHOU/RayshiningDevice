@@ -157,7 +157,7 @@ public:
             Q_EMIT handle_.logMessage(QStringLiteral("设备未连接或正被占用，激光器查询未发送"));
             return false;
         }
-        return handle_.send(encode(static_cast<quint16>(module), static_cast<quint8>(Command::Read), static_cast<quint8>(width), data));
+        return handle_.send(makeBody(static_cast<quint16>(module), static_cast<quint8>(Command::Read), static_cast<quint8>(width), data));
     }
 
     Q_INVOKABLE bool startEmission(Module module, int width, int frequencyKhz, int powerPercent, int widthNs)
@@ -196,7 +196,7 @@ private:
             Q_EMIT handle_.logMessage(QStringLiteral("激光器未连接或正被占用，命令未发送"));
             return false;
         }
-        return handle_.send(encode(static_cast<quint16>(module), static_cast<quint8>(command), static_cast<quint8>(width), data));
+        return handle_.send(makeBody(static_cast<quint16>(module), static_cast<quint8>(command), static_cast<quint8>(width), data));
     }
     struct Telemetry {
         static constexpr double unknown = std::numeric_limits<double>::quiet_NaN();

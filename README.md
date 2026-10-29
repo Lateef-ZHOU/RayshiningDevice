@@ -10,7 +10,7 @@
 
 - `Protocol.h`：CRC-16/MODBUS、帧长度校验及原样数据区封装。CRC 初值 FFFF、反射多项式 A001；范围为模块地址至数据末尾，线上高字节先发。空输入保留初值 FFFF。
 - `Framer.h`：每个串口连接独持 `boost::circular_buffer<char>`，构造时预留 65548 字节、实际长度为 0。容量以内追加保留旧数据，满后再次追加才覆盖最旧字节；长度和回绕由 Boost 管理，不自写容器或另加封装。逐字节加入；收齐 `HeaderSize`（10 字节）后才进入检查循环，核对 WHLS 并读取大端长度。整帧大小为数据长度 + 13。不足时 break 返回外层收字节；帧尾/CRC 失败只丢一字节重新找头；通过后移除并同步交付自有 QByteArray。
-- `LaserHandle.h`：复用 HandleCore 的 SerialHandle。RX 交出已验证并去除外层帧头尾的报文主体；TX 接收 `encode` 产生的完整帧，再校验后发送，不重复加封套。parameters 提供 115200/8N1/无流控参数。现有 start 仍接收 SerialParams，调用方应采用该参数工厂。
+- `LaserHandle.h`：复用 HandleCore 的 SerialHandle。RX 交出已验证并去除外层帧头尾的报文主体；TX 接收相同格式的主体，检查长度后由 Handle 调用 `encode(body)` 补 WHLS、CRC16 和 0x55。parameters 提供 115200/8N1/无流控参数。现有 start 仍接收 SerialParams，调用方应采用该参数工厂。
 - `LaserDevice.h`：本型号的模块/命令/寄存器枚举、回复值类型和语义解析均在此定义；寄存器格式映射为类内私有静态函数，供查询校验和解析共用。final C++ 官邸直接继承 DeviceBase，按值持有唯一 LaserHandle。现有 Device 模板强制配套 Collector，本型号暂不参加任务，因此不造空 Collector 或新设备族。借用 DeviceBase 的身份、状态、锁和日志源契约，未修改 DeviceCore。
 - 回调 RxTime 是补齐帧时所在读取块的观测时间，不冒充首字节或硬件时刻；回调不得重入同一成帧器。
 - 最大数据长度 65535、最小帧长 13、最大帧长 65548。每次追加后先处理候选，达到最大帧长时必然验证或丢弃坏头，因此合法最大帧不会因覆盖而损失头部。移除前缀不搬移剩余字节；有效帧直接从环中复制主体一次，不先复制完整帧再裁剪。
@@ -19,7 +19,7 @@
 
 协议依据：镭晟《激光器控制接口及串口通讯协议 V1.3.1》。帧头 WHLS，地址和长度大端；数据区按字段区分字节序，由官邸解释，不统一转换为整数。
 
-## 接收交付格式
+## Handle 双向主体格式
 
 成帧器检查完整线上帧后，移除开头 `WHLS`（4 字节）和末尾 `CRC16 + 0x55`（3 字节），交付自有 `QByteArray`：
 
@@ -29,7 +29,7 @@
 
 主体相对偏移 0/2/3/4/6 分别对应以上字段。地址和数据长度仍保留大端原始字节，数据区不作数值解释；正文中的 WHLS/55 不会被删除。空数据确认仍有 6 字节，例如模式切换确认上交 `00 00 B7 00 00 00`，不会退化成空数组。
 
-官邸的 `makeOnStream` 现场生成回调交给 Handle 独持，直接在回调内解释主体；失败处触发现有 `handle_.logMessage` 后返回，不通过返回值中转错误字符串。整包验证成功后，以官邸为上下文排队到主线程处理：非绘图状态经 `replyReady` 交出，绘图量更新缓存后经 `telemetryReady` 交一次完整快照。不另设公开解码入口或独立回复文件，出现实际复用需求时再抽取。RXRuling 和 DataCallback 仍使用 QByteArray，HandleCore 接口不变。发送仍采用完整线上帧，不套用接收主体格式。
+官邸的 `makeOnStream` 现场生成回调交给 Handle 独持，直接在回调内解释主体；失败处触发现有 `handle_.logMessage` 后返回，不通过返回值中转错误字符串。整包验证成功后，以官邸为上下文排队到主线程处理：非绘图状态经 `replyReady` 交出，绘图量更新缓存后经 `telemetryReady` 交一次完整快照。不另设公开解码入口或独立回复文件，出现实际复用需求时再抽取。RXRuling 和 DataCallback 仍使用 QByteArray，HandleCore 接口不变。发送同样使用该主体格式：官邸调用 `makeBody` 只组地址、命令、脉宽号、长度和数据；Handle 负责完整线上封装，不再接受完整帧作为下行接口。`encode(body)` 只用于 Handle 成帧及线上帧验证工具。
 
 ## C++ 官邸接口与数据
 

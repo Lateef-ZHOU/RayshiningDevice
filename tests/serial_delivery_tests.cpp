@@ -36,9 +36,9 @@ int main(int argc, char **argv)
     std::atomic<bool> worker{true}, typedTime{true};
     const auto ack = QByteArray::fromHex("57484c530000b7000000af2755");
     const auto data = QByteArray("WHLS\x55", 5);
-    const auto reply = Rayshining::encode(1, 0xb1, 5, data);
+    const auto reply = Rayshining::encode(Rayshining::makeBody(1, 0xb1, 5, data));
     // 未定义业务字段仍完整上传，由官邸 onStream 决定是否支持。
-    const auto opaque = Rayshining::encode(0xabcd, 0x42, 0xee, QByteArray::fromHex("0080"));
+    const auto opaque = Rayshining::encode(Rayshining::makeBody(0xabcd, 0x42, 0xee, QByteArray::fromHex("0080")));
     {
         Rayshining::LaserHandle handle([&](const QByteArray &body, RxTime at) {
             worker = worker && QThread::currentThread() != app.thread();
@@ -53,8 +53,17 @@ int main(int argc, char **argv)
         bad[bad.size() - 3] = static_cast<char>(bad[bad.size() - 3] ^ 1);
         FakeSerialPort::enqueue(bad + ack + reply + opaque);
         require(until([&] { return count() == 3; }), "valid bodies delivered through production Handle");
-        require(handle.send(reply) && FakeSerialPort::writes() == std::vector<QByteArray>{reply},
-                "TX still sends complete wire frame");
+        require(handle.send(reply.sliced(4, reply.size() - 7)) && FakeSerialPort::writes() == std::vector<QByteArray>{reply},
+                "TX frames the body exactly once");
+        const auto before = FakeSerialPort::writes().size();
+        require(!handle.send(reply), "full wire frame is not accepted as a body");
+        require(!handle.send(QByteArray::fromHex("00003100000200")), "short body rejected");
+        require(!handle.send(QByteArray::fromHex("00003100000000")), "trailing body bytes rejected");
+        require(!handle.send(QByteArray(65542, 'x')), "oversize body rejected");
+        require(FakeSerialPort::writes().size() == before, "invalid bodies never reach serial");
+        require(handle.send(QByteArray::fromHex("000036000000"))
+                && FakeSerialPort::writes().back() == QByteArray::fromHex("57484c53000036000000930f55"),
+                "empty command data framed with expected wire CRC");
         handle.stop();
         require(worker && typedTime, "callback thread and RxTime preserved");
     }

@@ -308,19 +308,19 @@ LaserModule {
         for (const auto &address : page->property(name).value<QJSValue>().toVariant().toList()) {
             char bytes[4]; qToLittleEndian<quint32>(address.toUInt(), bytes); periodic.append(bytes, 4);
         }
-    require(writes[0] == encode(0, 0x31, 2, initial) && writes[1] == encode(0, 0x31, 2, periodic),
+    require(writes[0] == encode(makeBody(0, 0x31, 2, initial)) && writes[1] == encode(makeBody(0, 0x31, 2, periodic)),
             "width/identity query precedes immediate state query, both seed only");
-    FakeSerialPort::enqueue(encode(0, 0xb1, 0, QByteArray::fromHex("96000000800000c89700000080000190")));
+    FakeSerialPort::enqueue(encode(makeBody(0, 0xb1, 0, QByteArray::fromHex("96000000800000c89700000080000190"))));
     require(until([&] { return widthSelector->property("count").toInt() == 3; }), "automatic query reply populates actual pulse choices");
     require(timer->property("running").toBool(), "connection starts timer explicitly");
     const auto reads = FakeSerialPort::reads();
-    FakeSerialPort::enqueue(encode(0, 0xb1, 0, QByteArray::fromHex("9900000080000258")));
+    FakeSerialPort::enqueue(encode(makeBody(0, 0xb1, 0, QByteArray::fromHex("9900000080000258"))));
     for (int i = 0; i < 3000 && FakeSerialPort::reads() <= reads + 1; ++i) QThread::msleep(1);
     require(FakeSerialPort::reads() > reads + 1, "late reply queued before close without pumping GUI");
     const auto beforeClose = FakeSerialPort::writes().size();
     device->close();
     require(FakeSerialPort::writes().size() == beforeClose + 1
-            && FakeSerialPort::writes().back() == encode(0, 0x36, 0, {}) && FakeSerialPort::livePorts() == 0,
+            && FakeSerialPort::writes().back() == encode(makeBody(0, 0x36, 0, {})) && FakeSerialPort::livePorts() == 0,
             "actual QML disconnect sends one off before serial release");
     require(!timer->property("running").toBool(), "disconnect stops timer synchronously");
     require(page->property("seedReadings").value<QJSValue>().toVariant().toMap().isEmpty()

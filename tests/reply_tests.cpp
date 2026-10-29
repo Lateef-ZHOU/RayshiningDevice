@@ -19,7 +19,7 @@ void require(bool ok, const char *message)
 QByteArray hex(const char *s) { return QByteArray::fromHex(s); }
 QByteArray body(quint16 module, quint8 command, quint8 width, const QByteArray &data = {})
 {
-    const auto wire = Rayshining::encode(module, command, width, data);
+    const auto wire = Rayshining::encode(Rayshining::makeBody(module, command, width, data));
     return wire.sliced(4, wire.size() - 7);
 }
 template <typename Predicate> bool until(Predicate ready)
@@ -64,7 +64,7 @@ struct Receiver {
         const auto crc = Rayshining::crc16(payload);
         frame.append(static_cast<char>(crc >> 8)); frame.append(static_cast<char>(crc)); frame.append('\x55');
         require(Rayshining::validFrame(frame), "semantic test has valid outer framing");
-        FakeSerialPort::enqueue(frame + Rayshining::encode(1, 0xb6, 4, {}));
+        FakeSerialPort::enqueue(frame + Rayshining::encode(Rayshining::makeBody(1, 0xb6, 4, {})));
         // 后续有效帧是交付屏障，同时验证坏业务帧未阻塞后续收包。
         require(until([this] { return markerReceived; }), "subsequent valid reply delivered");
         require((replies.size() <= 1 && telemetry.size() <= 1 && (!replies.empty() || !telemetry.empty()) && logs.empty())

@@ -72,10 +72,10 @@ int main(int argc, char **argv)
             && !device.readRegisters(Module::Seed, 0, {})
             && !device.readRegisters(Module::Seed, 0, {static_cast<Register>(0xffffffff)})
             && FakeSerialPort::writes().size() == 1, "invalid query never sent");
-        const auto readings = encode(1, 0xb1, 5, QByteArray::fromHex("800000000a000000890000000000c8c1"));
+        const auto readings = encode(makeBody(1, 0xb1, 5, QByteArray::fromHex("800000000a000000890000000000c8c1")));
         const auto errorsBeforeReceive = errors;
         FakeSerialPort::enqueue(good.first(4));
-        FakeSerialPort::enqueue(good.sliced(4) + encode(2, 0xb1, 0, {}) + readings);
+        FakeSerialPort::enqueue(good.sliced(4) + encode(makeBody(2, 0xb1, 0, {})) + readings);
         require(until([&] { return received.size() == 2 && errors == errorsBeforeReceive + 1; }), "actual stream parses and recovers after semantic error");
         require(received[0].command == Command::ModeReply && received[0].readings.empty()
             && received[1].readings.size() == 1 && std::get<quint32>(received[1].readings[0].value) == 10,
@@ -103,7 +103,7 @@ int main(int argc, char **argv)
         QObject::connect(logs, &LaserHandle::logMessage, device.get(), [&](const QString &text) {
             if (text.contains(QStringLiteral("未定义"))) reached = true;
         }, Qt::DirectConnection);
-        FakeSerialPort::enqueue(good + encode(2, 0xb1, 0, {}));
+        FakeSerialPort::enqueue(good + encode(makeBody(2, 0xb1, 0, {})));
         const auto end = std::chrono::steady_clock::now() + std::chrono::seconds(3);
         while (!reached && std::chrono::steady_clock::now() < end) QThread::msleep(1);
         require(reached, "worker queued a good reply before destruction");

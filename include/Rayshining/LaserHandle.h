@@ -29,13 +29,14 @@ private:
     {
         return {RXRuling::Decode, body, at}; // 已校验并去掉外层帧头尾；语义解析归官邸 onStream。
     }
-    [[nodiscard]] TXRuling onTX(const QByteArray &frame, std::shared_ptr<ConnType>) const override
+    [[nodiscard]] TXRuling onTX(const QByteArray &body, std::shared_ptr<ConnType>) const override
     {
-        if (!validFrame(frame)) {
-            Q_EMIT logMessage(QStringLiteral("激光器指令帧格式或 CRC 错误，未发送"));
+        auto frame = encode(body);
+        if (frame.isEmpty()) {
+            Q_EMIT logMessage(QStringLiteral("激光器指令主体长度错误，未发送"));
             return {};
         }
-        return {TXRuling::Encode, frame};
+        return {TXRuling::Encode, std::move(frame)};
     }
 };
 }
