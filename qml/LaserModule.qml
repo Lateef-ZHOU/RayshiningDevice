@@ -88,6 +88,7 @@ ModulePage {
         if (isOpen) {
             seedChart.clear()
             query(identityRegisters.concat(statusRegisters, measurementRegisters), false)
+            query(widthRegisters, false)
         }
     }
     Timer {
@@ -157,15 +158,14 @@ ModulePage {
     }
     readonly property Section control: Section {
         title: qsTr("激光控制")
-        RowLayout {
-            Label { text: qsTr("脉宽") }
+        FieldRow {
+            label: qsTr("脉宽（ns）")
             ComboBox {
                 id: widthSelector
                 objectName: "pulseWidthSelector"
                 Layout.fillWidth: true
-                model: root.widthOptions.map(option => option.value + " ns")
+                model: root.widthOptions.map(option => String(option.value))
                 editable: false
-                displayText: currentIndex >= 0 ? currentText : qsTr("暂无可选脉宽")
             }
             Button {
                 objectName: "refreshPulseWidths"
@@ -173,8 +173,8 @@ ModulePage {
                 onClicked: root.query(root.widthRegisters, true)
             }
         }
-        RowLayout {
-            Label { text: qsTr("频率 (kHz)") }
+        FieldRow {
+            label: qsTr("频率（kHz）")
             ComboBox {
                 id: frequencySelector
                 objectName: "frequencySelector"
@@ -184,8 +184,8 @@ ModulePage {
                 editable: false
             }
         }
-        RowLayout {
-            Label { text: qsTr("功率 (%)") }
+        FieldRow {
+            label: qsTr("功率（%）")
             IntField {
                 id: powerInput
                 objectName: "powerInput"

@@ -120,15 +120,16 @@ LaserModule {
         const auto index = widthSelector->property("currentIndex").toInt();
         return index >= 0 && index < options.size() ? options[index].toMap() : QVariantMap{};
     };
-    require(widthSelector->property("count").toInt() == 0 && widthSelector->property("currentIndex").toInt() == -1,
-            "no width options or selection before device reply");
+    require(widthSelector->property("count").toInt() == 0 && widthSelector->property("currentIndex").toInt() == -1
+            && widthSelector->property("displayText").toString().isEmpty(),
+            "width selector stays blank before device reply");
     require(powerReadback->property("text").toString().endsWith(QStringLiteral("—")), "missing power stays unknown");
     for (const auto *name : {"identityRegisters", "statusRegisters", "measurementRegisters"}) {
         bool containsWidth = false;
         for (const auto &address : page->property(name).value<QJSValue>().toVariant().toList())
             containsWidth |= address.toInt() >= static_cast<int>(Rayshining::Register::Width0)
                 && address.toInt() <= static_cast<int>(Rayshining::Register::Width5);
-        require(!containsWidth, "initial and periodic query groups never request the width list");
+        require(!containsWidth, "ordinary query groups exclude widths; connection has its separate one-shot width query");
     }
     int logs = 0;
     QObject::connect(qobject_cast<Rayshining::LaserHandle *>(device->logSourceObject()), &Rayshining::LaserHandle::logMessage,
@@ -182,7 +183,7 @@ LaserModule {
     Q_EMIT device->replyReady({}, Reply{Module::Seed, Command::ReadReply, 0,
         {{Register::Width0, PulseWidthOption{false, 200}}, {Register::Width2, PulseWidthOption{true, 420}},
          {Register::Width5, PulseWidthOption{true, 915}}}});
-    require(widthSelector->property("count").toInt() == 2 && widthSelector->property("currentText").toString() == "420 ns"
+    require(widthSelector->property("count").toInt() == 2 && widthSelector->property("currentText").toString() == "420"
             && selectedWidth().value("code").toInt() == 2, "only selectable reply values shown with original sparse codes");
     require(!page->property("seedReadings").value<QJSValue>().toVariant().toMap().contains("152"),
             "width data is not duplicated in status cache");
@@ -204,7 +205,7 @@ LaserModule {
          {Register::Width5, PulseWidthOption{true, 915}}}});
     require(page->property("widthListUpdates").toInt() == beforeIdentical, "identical width reply does not rebuild menu");
     Q_EMIT device->replyReady({}, Reply{Module::Seed, Command::ReadReply, 0, {{Register::Width5, PulseWidthOption{true, 916}}}});
-    require(widthSelector->property("currentText").toString() == "916 ns" && selectedWidth().value("code").toInt() == 5,
+    require(widthSelector->property("currentText").toString() == "916" && selectedWidth().value("code").toInt() == 5,
             "updated physical width keeps the same protocol code");
     Q_EMIT device->replyReady({}, Reply{Module::Seed, Command::ReadReply, 0, {{Register::Width2, PulseWidthOption{false, 420}}}});
     require(widthSelector->property("count").toInt() == 2 && selectedWidth().value("code").toInt() == 5,
