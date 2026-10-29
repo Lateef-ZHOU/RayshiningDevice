@@ -26,7 +26,9 @@ import Lidar.Rayshining
 LaserModule {
     width: 1280; height: 900; polling: false
     property int displayedLogs: 0
+    property int widthListUpdates: 0
     onLogMessage: ++displayedLogs
+    onWidthOptionsChanged: ++widthListUpdates
 }
 )QML", QUrl());
     std::unique_ptr<QObject> page(component.create());
@@ -38,6 +40,19 @@ LaserModule {
     const QQmlListReference charts(page.get(), "mainPages");
     require(charts.isValid() && charts.count() == 1, "only seed chart page assembled");
     require(page->property("powerPercent").toInt() == 1, "power input starts at one percent");
+    auto *widthSelector = page->findChild<QObject *>(QStringLiteral("pulseWidthSelector"));
+    auto *powerReadback = page->findChild<QObject *>(QStringLiteral("powerReadback"));
+    require(widthSelector && powerReadback, "width selector and power readback present");
+    require(widthSelector->property("count").toInt() == 0 && widthSelector->property("currentIndex").toInt() == -1,
+            "no width options or selection before device reply");
+    require(powerReadback->property("text").toString().endsWith(QStringLiteral("—")), "missing power stays unknown");
+    for (const auto *name : {"identityRegisters", "statusRegisters", "measurementRegisters"}) {
+        bool containsWidth = false;
+        for (const auto &address : page->property(name).value<QJSValue>().toVariant().toList())
+            containsWidth |= address.toInt() >= static_cast<int>(Rayshining::Register::Width0)
+                && address.toInt() <= static_cast<int>(Rayshining::Register::Width5);
+        require(!containsWidth, "initial and periodic query groups never request the width list");
+    }
     int logs = 0;
     QObject::connect(qobject_cast<Rayshining::LaserHandle *>(device->logSourceObject()), &Rayshining::LaserHandle::logMessage,
         &app, [&](const QString &) { ++logs; });
@@ -54,10 +69,16 @@ LaserModule {
     require(logs == 0, "amplifier acknowledgements never trigger follow-up commands");
     require(page->property("displayedLogs").toInt() == 0, "amplifier replies have no UI or diagnostic side effects");
     require(page->setProperty("powerPercent", 37) && logs == 0, "editing power does not send commands");
-    Q_EMIT device->replyReady({}, Reply{Module::Seed, Command::ReadReply, 0, {{Register::Power, quint32(12)}}});
-    require(page->property("seedReadings").value<QJSValue>().toVariant().toMap().value("129").toInt() == 12
+    Q_EMIT device->replyReady({}, Reply{Module::Seed, Command::ReadReply, 0, {{Register::Power, quint32(25)}}});
+    require(page->property("seedReadings").value<QJSValue>().toVariant().toMap().value("129").toInt() == 25
             && page->property("powerPercent").toInt() == 37 && logs == 0,
             "reported power and editable power are independent; readback does not query");
+    require(powerReadback->property("text").toString().endsWith(QStringLiteral("9.8 %")), "raw power 25 displays 9.8 percent");
+    Q_EMIT device->replyReady({}, Reply{Module::Seed, Command::ReadReply, 0, {{Register::Power, quint32(255)}}});
+    require(powerReadback->property("text").toString().endsWith(QStringLiteral("100.0 %")), "raw power 255 displays 100 percent");
+    Q_EMIT device->replyReady({}, Reply{Module::Seed, Command::ReadReply, 0, {{Register::Power, quint32(0)}}});
+    require(powerReadback->property("text").toString().endsWith(QStringLiteral("0.0 %")) && logs == 0,
+            "raw power zero displays zero without querying");
     Q_EMIT device->replyReady({}, Reply{Module::Seed, Command::EmitReply, 0, {}});
     require(logs == 1, "empty emission ack initiates exactly one query (offline rejection)");
     Q_EMIT device->replyReady({}, Reply{Module::Seed, Command::ModeReply, 0, {}});
@@ -71,6 +92,51 @@ LaserModule {
     QVariant result;
     QMetaObject::invokeMethod(page.get(), "sendEmission", Q_RETURN_ARG(QVariant, result));
     require(!result.toBool() && logs == 2, "unknown width does not send emission command");
+    Q_EMIT device->replyReady({}, Reply{Module::Seed, Command::ReadReply, 0,
+        {{Register::Width0, PulseWidthOption{false, 200}}, {Register::Width2, PulseWidthOption{true, 420}},
+         {Register::Width5, PulseWidthOption{true, 915}}}});
+    require(widthSelector->property("count").toInt() == 2 && widthSelector->property("currentText").toString() == "420 ns"
+            && page->property("widthIndex").toInt() == 2, "only selectable reply values shown with original sparse codes");
+    require(!page->property("seedReadings").value<QJSValue>().toVariant().toMap().contains("152"),
+            "width data is not duplicated in status cache");
+    widthSelector->setProperty("currentIndex", 1);
+    require(page->property("widthIndex").toInt() == 5
+            && page->property("selectedWidth").value<QJSValue>().toVariant().toMap().value("value").toInt() == 915,
+            "selection carries device code five and returned nanoseconds, not row index");
+    const auto widthUpdates = page->property("widthListUpdates").toInt();
+    Q_EMIT device->replyReady({}, Reply{Module::Seed, Command::ReadReply, 0,
+        {{Register::Frequency, quint32(13)}, {Register::Power, quint32(25)}, {Register::WidthIndex, quint32(0)}}});
+    require(page->property("widthListUpdates").toInt() == widthUpdates && page->property("widthIndex").toInt() == 5,
+            "ordinary status does not rebuild options or overwrite chosen width");
+    Q_EMIT device->replyReady({}, Reply{Module::Seed, Command::ReadReply, 0, {{Register::Width1, PulseWidthOption{true, 175}}}});
+    require(widthSelector->property("count").toInt() == 3 && page->property("widthIndex").toInt() == 5
+            && widthSelector->property("currentIndex").toInt() == 2, "partial reply inserts by code and preserves selected code");
+    const auto beforeIdentical = page->property("widthListUpdates").toInt();
+    Q_EMIT device->replyReady({}, Reply{Module::Seed, Command::ReadReply, 0,
+        {{Register::Width1, PulseWidthOption{true, 175}}, {Register::Width2, PulseWidthOption{true, 420}},
+         {Register::Width5, PulseWidthOption{true, 915}}}});
+    require(page->property("widthListUpdates").toInt() == beforeIdentical, "identical width reply does not rebuild menu");
+    Q_EMIT device->replyReady({}, Reply{Module::Seed, Command::ReadReply, 0, {{Register::Width5, PulseWidthOption{true, 916}}}});
+    require(widthSelector->property("currentText").toString() == "916 ns" && page->property("widthIndex").toInt() == 5,
+            "updated physical width keeps the same protocol code");
+    Q_EMIT device->replyReady({}, Reply{Module::Seed, Command::ReadReply, 0, {{Register::Width2, PulseWidthOption{false, 420}}}});
+    require(widthSelector->property("count").toInt() == 2 && page->property("widthIndex").toInt() == 5,
+            "option removal does not change the selected code");
+    Q_EMIT device->replyReady({}, Reply{Module::Seed, Command::ReadReply, 0, {{Register::Width5, PulseWidthOption{false, 916}}}});
+    require(widthSelector->property("count").toInt() == 1 && page->property("widthIndex").toInt() == 1,
+            "unavailable selection falls back to an actual selectable reply");
+    std::vector<Reading> sixWidths;
+    for (int code = 0; code < 6; ++code)
+        sixWidths.push_back({static_cast<Register>(static_cast<int>(Register::Width0) + code), PulseWidthOption{true, static_cast<quint32>(111 + code * 133)}});
+    Q_EMIT device->replyReady({}, Reply{Module::Seed, Command::ReadReply, 0, sixWidths});
+    require(widthSelector->property("count").toInt() == 6 && page->property("widthIndex").toInt() == 1,
+            "all six slots can be offered without a hardcoded four-option limit");
+    for (auto &reading : sixWidths) reading.value = PulseWidthOption{false, 0};
+    Q_EMIT device->replyReady({}, Reply{Module::Seed, Command::ReadReply, 0, sixWidths});
+    require(widthSelector->property("count").toInt() == 0 && widthSelector->property("currentIndex").toInt() == -1,
+            "all-unavailable reply leaves the menu empty");
+    QMetaObject::invokeMethod(page.get(), "sendEmission", Q_RETURN_ARG(QVariant, result));
+    require(!result.toBool() && logs == 2, "empty refreshed list prevents emission without sending");
     QVariant queried;
     require(QMetaObject::invokeMethod(page.get(), "query", Q_RETURN_ARG(QVariant, queried),
         Q_ARG(QVariant, QVariant::fromValue(QVariantList{static_cast<int>(Register::Frequency)})),

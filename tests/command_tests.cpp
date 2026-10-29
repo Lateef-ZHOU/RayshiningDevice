@@ -37,6 +37,12 @@ int main(int argc, char **argv) {
         require(readBe16(frame[4], frame[5]) == 0 && qFromLittleEndian<quint32>(frame.constData() + HeaderSize + 4) == static_cast<quint32>(power),
                 "seed frame carries exact requested power");
     }
+    require(device.startEmission(Module::Seed, 5, 10, 10, 915), "sparse width code and returned nanoseconds accepted");
+    const auto selectedFrame = FakeSerialPort::writes().back();
+    require(static_cast<quint8>(selectedFrame[7]) == 5
+            && qFromBigEndian<quint32>(selectedFrame.constData() + HeaderSize + 8) == 915
+            && qFromLittleEndian<quint32>(selectedFrame.constData() + HeaderSize + 4) == 10,
+            "wire keeps width code five, actual 915 ns and unscaled ten-percent request");
     require(device.stopEmission(Module::Amplifier, 5) && FakeSerialPort::writes().back() == encode(1, 0x36, 5, {}), "targeted stop");
     require(device.setOpticalChannel(3) && FakeSerialPort::writes().back() == encode(0, 0x38, 0, QByteArray::fromHex("0300000000000000")), "channel fixed seed address");
     const auto count = FakeSerialPort::writes().size();
