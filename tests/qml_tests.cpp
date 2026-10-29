@@ -4,6 +4,7 @@
 #include <QGuiApplication>
 #include <QQmlComponent>
 #include <QQmlEngine>
+#include <QQmlListReference>
 #include <QQuickWindow>
 #include <QTimer>
 #include <QDebug>
@@ -30,15 +31,22 @@ LaserModule { width: 1280; height: 900; polling: false }
     require(device && device->parent() == page.get(), "page owns exact backend");
     require(qmlAttachedPropertiesObject<Rayshining::LaserDevice>(page.get()) == device, "unique attached backend");
     require(!device->isOpen(), "loading UI never connects hardware");
-    require(page->property("mainPages").isValid(), "two module charts assembled");
+    const QQmlListReference charts(page.get(), "mainPages");
+    require(charts.isValid() && charts.count() == 1, "only seed chart page assembled");
     int logs = 0;
     QObject::connect(qobject_cast<Rayshining::LaserHandle *>(device->logSourceObject()), &Rayshining::LaserHandle::logMessage,
         &app, [&](const QString &) { ++logs; });
     using namespace Rayshining;
-    Q_EMIT device->replyReady({}, Reply{Module::Amplifier, Command::ReadReply, 0, {{Register::Frequency, quint32(12)}, {Register::Emission, EmissionState::On}}});
-    auto values = page->property("amplifierReadings").value<QJSValue>().toVariant().toMap();
-    require(values.value("128").toInt() == 12 && values.value("24").toInt() == 1, "typed replies reach matching module UI");
+    Q_EMIT device->replyReady({}, Reply{Module::Seed, Command::ReadReply, 0, {{Register::Frequency, quint32(12)}, {Register::Emission, EmissionState::On}}});
+    auto values = page->property("seedReadings").value<QJSValue>().toVariant().toMap();
+    require(values.value("128").toInt() == 12 && values.value("24").toInt() == 1, "seed replies update seed status");
     require(logs == 0, "read reply never triggers another query");
+    Q_EMIT device->replyReady({}, Reply{Module::Amplifier, Command::ReadReply, 0, {{Register::Frequency, quint32(30)}}});
+    require(page->property("seedReadings").value<QJSValue>().toVariant().toMap() == values,
+        "amplifier replies cannot overwrite seed status");
+    Q_EMIT device->replyReady({}, Reply{Module::Amplifier, Command::EmitReply, 0, {}});
+    Q_EMIT device->replyReady({}, Reply{Module::Amplifier, Command::StopReply, 0, {}});
+    require(logs == 0, "amplifier acknowledgements never trigger follow-up commands");
     Q_EMIT device->replyReady({}, Reply{Module::Seed, Command::EmitReply, 0, {}});
     require(logs == 1, "empty emission ack initiates exactly one query (offline rejection)");
     Q_EMIT device->replyReady({}, Reply{Module::Seed, Command::ModeReply, 0, {}});
@@ -46,7 +54,7 @@ LaserModule { width: 1280; height: 900; polling: false }
     Q_EMIT device->replyReady({}, Reply{Module::Seed, Command::ChannelReply, 0, {}});
     require(logs == 2, "channel ack has no invented readback");
     const auto at = std::chrono::system_clock::now();
-    Q_EMIT device->telemetryReady(at, Module::Amplifier, {{"laserTemperature", 30.0}, {"mcuTemperature", 40.0},
+    Q_EMIT device->telemetryReady(at, Module::Seed, {{"laserTemperature", 30.0}, {"mcuTemperature", 40.0},
         {"pa1Current", 1.0}, {"pa2Current", 2.0}, {"pa3Current", 3.0}, {"voltage", 24.0}});
     require(logs == 2, "graph update never initiates a query");
     QVariant result;
