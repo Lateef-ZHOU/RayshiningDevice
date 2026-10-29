@@ -37,11 +37,9 @@ Section {
         StatusText {
             objectName: "emissionReadback"
             text: root.readings[LaserProtocol.Emission] === undefined ? "—" : root.readings[LaserProtocol.Emission] ? qsTr("出光") : qsTr("关光")
-            font.bold: true
         }
         StatusText {
             text: root.readings[LaserProtocol.ControlMode] === undefined ? "—" : (root.readings[LaserProtocol.ControlMode] & 0x400) ? qsTr("内控") : qsTr("外控")
-            font.bold: true
         }
         StatusText {
             objectName: "widthReadback"
