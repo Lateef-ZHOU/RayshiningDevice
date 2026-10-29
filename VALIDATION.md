@@ -1,5 +1,12 @@
 # 验证记录
 
+## 2026-10-29：连接通知统一查询与关闭收尾，并发布固定依赖（用户定）
+
+- Windows Qt 6.11.2 / MSVC Release 构建、公开头与 qmllint 通过，无编译及 QML 静态诊断；CTest 8/8（17.12 秒），其中真实 QML 官邸 110 项断言，串口仅替换为受控 C API，不连接实物。覆盖首查脉宽/型号、立即状态查询、实际回包填入选项、关闭前一次关光、清空与停表、重复关闭、迟到 true 及关闭后入队回包。
+- Linux Qt 6.12.0 / GCC 16.2.1 Release 构建、公开头及 CTest 8/8（11.38 秒）通过，编译无警告。qmllint 目标通过；Qt 6.12 对上游 SurfaceChart.qml 既有 state id 给出 id-shadows-member 提示，本轮激光器 QML 无诊断，未扩展修改曲面代码。
+- 两平台均取消 HandleCore、DeviceCore、ChartCore 和 UICore 本地源码覆盖，核对实际远端检出依次为 3470a1d、b392e3f、a12d764、5d4ccc1。测试构建的 Windows 后端使用可替换串口 C 符号，只有独立 BUILD_TESTING 路径启用；被主程序作为依赖使用时仍链接真实串口库。
+- Windows 证据：build/publish-configure.log、publish-build.log、publish-lint.log、Testing/Temporary/LastTest.log；Linux 证据：维护机 ~/.cache/lidar-connection-20261029/laser-*.log。没有实物频率、脉宽或关光确认验证，不发布新 Release。
+
 ## 2026-10-29：下拉弹层统一到 UI 库（用户定）
 
 - 脉宽、频率由 Qt ComboBox 换为 UICore ChoiceBox，仍直接读取 currentIndex/currentValue；串口 ChoiceField 通过同一基类获得上下展开、长列表滚动和空表不弹层。查询、发令、初始空值、稀疏编号与回报状态保持，无新增表单状态。

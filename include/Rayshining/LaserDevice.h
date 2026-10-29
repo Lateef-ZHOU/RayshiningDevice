@@ -103,6 +103,7 @@ public:
                 dropLock();
             Q_EMIT statusChanged();
         });
+        QObject::connect(&handle_, &QThread::finished, this, &DeviceBase::statusChanged);
     }
     ~LaserDevice() override { PreDestruction(); }
     [[nodiscard]] QString displayName() const final { return QStringLiteral("镭晟激光器"); }
@@ -135,12 +136,7 @@ public:
         for (const auto &port : availablePorts()) names.append(port.portName);
         return names;
     }
-    Q_INVOKABLE void close()
-    {
-        // 断开前向当前型号的种子地址尝试一次关光；发送失败也继续关闭，不等待回包。
-        (void)handle_.send(encode(static_cast<quint16>(Module::Seed), static_cast<quint8>(Command::Stop), 0, {}));
-        handle_.stop();
-    }
+    Q_INVOKABLE void close() { handle_.stop(); }
 
     Q_INVOKABLE bool readRegisters(Module module, int width, const QList<Register> &addresses)
     {
@@ -335,6 +331,7 @@ private:
             }
             // 先验证整包，再更新缓存，坏包不会留下前半段测量。缓存与 UI 交付均在主线程。
             QMetaObject::invokeMethod(self, [self, at, reply = std::move(reply)]() mutable {
+                if (!self->isOpen()) return; // 关闭期间已入队的回包不恢复刚清空的 UI，也不触发补查。
                 auto &values = self->telemetry_[static_cast<std::size_t>(reply.module)];
                 bool plotUpdated = false; // 本包的局部标志，不跨包等待或节流。
                 for (const auto &reading : reply.readings) {

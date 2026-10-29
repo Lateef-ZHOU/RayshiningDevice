@@ -57,7 +57,7 @@ Section {
         columnSpacing: 8
         rowSpacing: 6
         Layout.fillWidth: true
-        Layout.topMargin: 8
+        Layout.topMargin: 20
         StatusText { text: qsTr("脉宽") }
         StatusText { text: qsTr("功率") }
         StatusText { text: qsTr("频率") }
@@ -86,7 +86,7 @@ Section {
         columnSpacing: 12
         rowSpacing: 6
         Layout.fillWidth: true
-        Layout.topMargin: 8
+        Layout.topMargin: 20
         Label { text: qsTr("型号"); font.pixelSize: 12; opacity: 0.7 }
         Label {
             Layout.fillWidth: true

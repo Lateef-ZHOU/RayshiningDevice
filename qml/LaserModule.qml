@@ -81,27 +81,35 @@ ModulePage {
         const position = options.findIndex(option => option.code === previousCode)
         widthSelector.currentIndex = position >= 0 ? position : (options.length > 0 ? 0 : -1)
     }
-    onIsOpenChanged: {
-        widthOptions = []
-        widthSelector.currentIndex = -1
-        seedReadings = ({})
-        if (isOpen) {
-            seedChart.clear()
-            query(identityRegisters.concat(statusRegisters, measurementRegisters), false)
-            query(widthRegisters, false)
-        }
-    }
     Timer {
+        id: statusTimer
         objectName: "statusTimer"
         interval: 500
         repeat: true
-        running: root.isOpen
+        triggeredOnStart: true
         // 每轮只读取种子状态和测量值；读取回包不会触发响应式查询。
         onTriggered: root.query(root.measurementRegisters.concat(root.statusRegisters), false)
     }
     Connections {
         target: internals.device.logSource
         function onLogMessage(text): void { root.logMessage(text) }
+        function onConnectionChanged(connected): void {
+            if (connected) {
+                // 首连通知可能在关闭后才被主线程处理；已关闭时不重新启动查询。
+                if (!internals.device.isOpen) return
+                seedChart.clear()
+                // 脉宽与型号一起首查，随后立即查询状态；周期查询不刷新候选列表。
+                root.query(root.widthRegisters.concat(root.identityRegisters), false)
+                statusTimer.start()
+            } else {
+                // Handle 尚未促断，发送一次关光；失败也继续清理，不等确认。
+                internals.device.stopEmission(LaserProtocol.Seed, 0)
+                root.seedReadings = ({})
+                root.widthOptions = []
+                widthSelector.currentIndex = -1
+                statusTimer.stop()
+            }
+        }
     }
     Connections {
         target: internals.device

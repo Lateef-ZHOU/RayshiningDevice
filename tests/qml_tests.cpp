@@ -13,12 +13,20 @@
 #include <QDebug>
 #include <QtQml/QQmlExtensionPlugin>
 #include <Rayshining/LaserDevice.h>
+#include "FakeSerialPort.h"
 Q_IMPORT_QML_PLUGIN(LidarUIPlugin)
 Q_IMPORT_QML_PLUGIN(LidarChartsPlugin)
 Q_IMPORT_QML_PLUGIN(LidarRayshiningPlugin)
 namespace {
 int checks = 0;
 void require(bool v, const char *text) { ++checks; if (!v) { qCritical() << text; std::exit(1); } }
+template<typename Predicate> bool until(Predicate ready) {
+    const auto end = std::chrono::steady_clock::now() + std::chrono::seconds(3);
+    while (!ready() && std::chrono::steady_clock::now() < end) {
+        QCoreApplication::processEvents(); QThread::msleep(1);
+    }
+    return ready();
+}
 }
 int main(int argc, char **argv) {
     QGuiApplication app(argc, argv);
@@ -271,17 +279,58 @@ LaserModule {
     require(page->property("seedReadings").value<QJSValue>().toVariant().toMap().value("24").toInt() == 0,
             "off status follows the device report");
     Q_EMIT device->replyReady({}, Reply{Module::Seed, Command::ReadReply, 0, {{Register::Width2, PulseWidthOption{true, 420}}}});
-    // 驱动真实页面的连接变化处理器；isOpen 保持 false，不访问真实串口。
-    require(QMetaObject::invokeMethod(page.get(), "isOpenChanged"), "disconnect handler callable");
+    // 真实 QML 官邸和实际 Handle/解析器，仅替换串口 C API，不访问实物。
+    FakeSerialPort::reset();
+    require(device->open(QStringLiteral("controlled")), "page backend starts controlled serial");
+    require(until([&] { return FakeSerialPort::writes().size() >= 2; }), "connection triggers initial and immediate periodic queries");
+    auto writes = FakeSerialPort::writes();
+    QByteArray initial, periodic;
+    for (const auto *name : {"widthRegisters", "identityRegisters"})
+        for (const auto &address : page->property(name).value<QJSValue>().toVariant().toList()) {
+            char bytes[4]; qToLittleEndian<quint32>(address.toUInt(), bytes); initial.append(bytes, 4);
+        }
+    for (const auto *name : {"measurementRegisters", "statusRegisters"})
+        for (const auto &address : page->property(name).value<QJSValue>().toVariant().toList()) {
+            char bytes[4]; qToLittleEndian<quint32>(address.toUInt(), bytes); periodic.append(bytes, 4);
+        }
+    require(writes[0] == encode(0, 0x31, 2, initial) && writes[1] == encode(0, 0x31, 2, periodic),
+            "width/identity query precedes immediate state query, both seed only");
+    FakeSerialPort::enqueue(encode(0, 0xb1, 0, QByteArray::fromHex("96000000800000c89700000080000190")));
+    require(until([&] { return widthSelector->property("count").toInt() == 3; }), "automatic query reply populates actual pulse choices");
+    require(timer->property("running").toBool(), "connection starts timer explicitly");
+    const auto reads = FakeSerialPort::reads();
+    FakeSerialPort::enqueue(encode(0, 0xb1, 0, QByteArray::fromHex("9900000080000258")));
+    for (int i = 0; i < 3000 && FakeSerialPort::reads() <= reads + 1; ++i) QThread::msleep(1);
+    require(FakeSerialPort::reads() > reads + 1, "late reply queued before close without pumping GUI");
+    const auto beforeClose = FakeSerialPort::writes().size();
+    device->close();
+    require(FakeSerialPort::writes().size() == beforeClose + 1
+            && FakeSerialPort::writes().back() == encode(0, 0x36, 0, {}) && FakeSerialPort::livePorts() == 0,
+            "actual QML disconnect sends one off before serial release");
+    require(!timer->property("running").toBool(), "disconnect stops timer synchronously");
     require(page->property("seedReadings").value<QJSValue>().toVariant().toMap().isEmpty()
             && widthSelector->property("count").toInt() == 0
             && powerReadback->property("text").toString().endsWith(QStringLiteral("—")),
             "disconnect restores unknown readbacks and clears old width options");
     require(powerInput->property("value").toInt() == 37 && frequencySelector->property("currentValue").toInt() == 8,
             "disconnect leaves next-command inputs unchanged");
+    require(until([&] { return !page->property("isOpen").toBool(); }), "finished refreshes real open property");
+    require(widthSelector->property("count").toInt() == 0, "queued reply cannot refill choices after disconnect");
+    const auto closedWrites = FakeSerialPort::writes().size();
+    device->close();
+    require(FakeSerialPort::writes().size() == closedWrites, "repeated close sends no duplicate off");
+    // 先不泵 GUI，等真正收包后立即关闭：迟到 true 不得重启定时查询。
+    require(device->open(QStringLiteral("controlled")), "start before delayed true");
+    for (int i = 0; i < 3000 && !device->isOpen(); ++i) QThread::msleep(1);
+    require(device->isOpen(), "worker connected without pumping GUI");
+    device->close();
+    QCoreApplication::processEvents();
+    require(!timer->property("running").toBool(), "delayed true does not restart polling after stop");
+    const auto idleWrites = FakeSerialPort::writes().size();
     QTimer::singleShot(8000, &app, &QCoreApplication::quit);
     const auto code = app.exec();
-    require(!device->isOpen() && logs == 4, "idle eight-second UI has no spontaneous connection or queries");
+    require(!device->isOpen() && FakeSerialPort::writes().size() == idleWrites,
+            "idle eight-second UI has no spontaneous connection or queries");
     std::cout << checks << " QML checks passed\n";
     return code;
 }

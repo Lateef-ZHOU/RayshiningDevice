@@ -63,6 +63,13 @@ add_test(NAME telemetry COMMAND telemetry-tests)
 add_test(NAME commands COMMAND command-tests)
 set_tests_properties(reply device telemetry commands PROPERTIES TIMEOUT 20)
 add_executable(qml-tests qml_tests.cpp)
+target_sources(qml-tests PRIVATE "${lidar_handle_core_SOURCE_DIR}/tests/serial/FakeSerialPort.cpp")
+target_include_directories(qml-tests PRIVATE "${lidar_handle_core_SOURCE_DIR}/tests/serial")
+if(WIN32)
+    # 独立测试构建令实际 QML 后端调用可替换的 C 符号；应用依赖构建不进入本目录。
+    target_compile_definitions(RayshiningDevice PRIVATE LIBSERIALPORT_MSBUILD)
+    target_compile_definitions(qml-tests PRIVATE LIBSERIALPORT_MSBUILD)
+endif()
 target_link_libraries(qml-tests PRIVATE Lidar::RayshiningDevice RayshiningDeviceplugin LidarUICoreplugin LidarChartCoreplugin)
 add_test(NAME qml COMMAND qml-tests)
 set_tests_properties(qml PROPERTIES TIMEOUT 30

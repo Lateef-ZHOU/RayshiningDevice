@@ -18,7 +18,7 @@ if(NOT TARGET Lidar::HandleCore)
     set(HANDLECORE_WITH_SERIAL ON CACHE BOOL "Enable serial transport" FORCE)
     FetchContent_Declare(lidar_handle_core
         GIT_REPOSITORY https://github.com/Lateef-ZHOU/HandleCore.git
-        GIT_TAG 379401c85f0da11adde9a2f6fde8fe767fbae707)
+        GIT_TAG 3470a1d9f3826f4a666b0e53c29c001f0901fbbd)
     FetchContent_MakeAvailable(lidar_handle_core)
 endif()
 if(NOT TARGET Lidar::Serial)
@@ -27,13 +27,13 @@ endif()
 if(NOT TARGET Lidar::DeviceCore)
     FetchContent_Declare(lidar_device_core
         GIT_REPOSITORY https://github.com/Lateef-ZHOU/DeviceCore.git
-        GIT_TAG 5c63ec5c501d83a15daa65a41dca438ee4ff330f)
+        GIT_TAG b392e3fec0461ca9412a71f9f49a2a61a0516df0)
     FetchContent_MakeAvailable(lidar_device_core)
 endif()
 if(NOT TARGET Lidar::ChartCore)
     FetchContent_Declare(lidar_chartcore
         GIT_REPOSITORY https://github.com/Lateef-ZHOU/ChartCore.git
-        GIT_TAG 5fd7a0663319e085089b6011510a6624ffb0708d)
+        GIT_TAG a12d764c75d5438053c6d98838727dba4eac3af6)
     FetchContent_MakeAvailable(lidar_chartcore)
 endif()
 set(import_paths)
