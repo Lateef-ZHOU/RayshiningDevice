@@ -1,5 +1,12 @@
 # 验证记录
 
+## 2026-10-29：激光状态两行五列及报警日志（用户定）
+
+- 状态栏改名“激光状态”，出光、模式、脉宽、功率、频率统一为标题在上、回报在下的五列；移除报警格，下方保留型号/SN 两行和 20 px 组间距。报警仍被周期查询，用已有回报缓存比较变化，异常变化及解除各记一次日志，初次正常和重复状态不刷屏，不新增缓存或查询。
+- Windows Qt 6.11.2 / MSVC Release 增量构建与 qmllint 无警告；实际 QML 测试 116 项通过（含 2 项截图保存）。新增验证覆盖报警位解释、重复/无关回报不重复日志、解除通知以及不引发补查；既有脉宽、功率、连接关闭及 8 秒运行检查保持。
+- 已查看 400 像素侧栏截图，两行五列及型号/SN 完整，无挤压换行；Basic/software 仅用于离屏截图，生产样式不变。证据：build/build-status-five-columns.log、test-status-five-columns.log、status-five-columns-status.png 和 status-five-columns-page.png。仅既有 FreeType 提示，未连接实物，未重复未改动协议与 Linux 全套。
+- 主程序原 build 临时源码覆盖本仓，原 build/Release 与原启动入口已更新并通过 8 秒冒烟；本轮仅本地提交，正式远端固定版本、Release/dist、simonly/Docker 不变。
+
 ## 2026-10-29：连接通知统一查询与关闭收尾，并发布固定依赖（用户定）
 
 - Windows Qt 6.11.2 / MSVC Release 构建、公开头与 qmllint 通过，无编译及 QML 静态诊断；CTest 8/8（17.12 秒），其中真实 QML 官邸 110 项断言，串口仅替换为受控 C API，不连接实物。覆盖首查脉宽/型号、立即状态查询、实际回包填入选项、关闭前一次关光、清空与停表、重复关闭、迟到 true 及关闭后入队回包。

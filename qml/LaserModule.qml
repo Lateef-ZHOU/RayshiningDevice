@@ -71,6 +71,18 @@ ModulePage {
                 optionsChanged = true
             }
         }
+        // 用已有回报缓存比较报警变化，避免 500 ms 轮询重复刷日志。
+        const alarms = readings[LaserProtocol.Alarms]
+        if (alarms !== undefined && alarms !== seedReadings[LaserProtocol.Alarms]) {
+            if (alarms !== 0) {
+                const names = ["光频率1", "光功率1", "光频率2", "光功率2", "Seed过流", "PA1过流", "PA2过流", "PA3过流",
+                    "温度点1", "温度点2", "温度点3", "TEC温度1", "TEC温度2", "TEC温度3", "TEC温度4", "供电电压"]
+                logMessage(qsTr("激光报警：") + names.filter((name, bit) => (alarms & (1 << bit)) !== 0).join(" · ")
+                    + " [0x" + alarms.toString(16) + "]")
+            } else if (seedReadings[LaserProtocol.Alarms] !== undefined) {
+                logMessage(qsTr("激光报警已解除"))
+            }
+        }
         if (Object.keys(readings).length > 0)
             seedReadings = Object.assign({}, seedReadings, readings)
         if (!optionsChanged) return
@@ -138,7 +150,7 @@ ModulePage {
     }]
     sections: [connection, seedStatus, control]
     readonly property Section seedStatus: LaserStatus {
-        title: qsTr("种子模块状态")
+        title: qsTr("激光状态")
         readings: root.seedReadings
         widthOptions: root.widthOptions
     }

@@ -12,14 +12,6 @@ Section {
         const v = readings[address]
         return v === undefined ? "—" : String(v) + suffix
     }
-    function alarms() {
-        const bits = readings[LaserProtocol.Alarms]
-        if (bits === undefined) return "—"
-        if (bits === 0) return qsTr("无报警")
-        const names = ["光频率1", "光功率1", "光频率2", "光功率2", "Seed过流", "PA1过流", "PA2过流", "PA3过流",
-            "温度点1", "温度点2", "温度点3", "TEC温度1", "TEC温度2", "TEC温度3", "TEC温度4", "供电电压"]
-        return names.filter((name, bit) => (bits & (1 << bit)) !== 0).join(" · ") + "  [0x" + bits.toString(16) + "]"
-    }
     function identity(addresses) {
         if (addresses.every(address => readings[address] === undefined)) return "—"
         return addresses.map(address => readings[address] === undefined ? "…" : readings[address]).join("").replace(/\0/g, "")
@@ -32,36 +24,25 @@ Section {
         wrapMode: Text.Wrap
     }
     GridLayout {
-        columns: 4
-        uniformCellWidths: true
-        columnSpacing: 8
-        rowSpacing: 8
-        Layout.fillWidth: true
-        StatusText { text: qsTr("出光"); font.pixelSize: 18 }
-        StatusText {
-            objectName: "emissionReadback"
-            text: root.readings[LaserProtocol.Emission] === undefined ? "—" : root.readings[LaserProtocol.Emission] ? qsTr("出光") : qsTr("关光")
-            font.pixelSize: 18
-            font.bold: true
-        }
-        StatusText { text: qsTr("模式"); font.pixelSize: 18 }
-        StatusText {
-            text: root.readings[LaserProtocol.ControlMode] === undefined ? "—" : (root.readings[LaserProtocol.ControlMode] & 0x400) ? qsTr("内控") : qsTr("外控")
-            font.pixelSize: 18
-            font.bold: true
-        }
-    }
-    GridLayout {
-        columns: 4
+        columns: 5
         uniformCellWidths: true
         columnSpacing: 8
         rowSpacing: 6
         Layout.fillWidth: true
-        Layout.topMargin: 20
+        StatusText { text: qsTr("出光") }
+        StatusText { text: qsTr("模式") }
         StatusText { text: qsTr("脉宽") }
         StatusText { text: qsTr("功率") }
         StatusText { text: qsTr("频率") }
-        StatusText { text: qsTr("报警") }
+        StatusText {
+            objectName: "emissionReadback"
+            text: root.readings[LaserProtocol.Emission] === undefined ? "—" : root.readings[LaserProtocol.Emission] ? qsTr("出光") : qsTr("关光")
+            font.bold: true
+        }
+        StatusText {
+            text: root.readings[LaserProtocol.ControlMode] === undefined ? "—" : (root.readings[LaserProtocol.ControlMode] & 0x400) ? qsTr("内控") : qsTr("外控")
+            font.bold: true
+        }
         StatusText {
             objectName: "widthReadback"
             text: {
@@ -76,10 +57,6 @@ Section {
                 : (root.readings[LaserProtocol.Power] * 100 / 255).toFixed(1) + " %"
         }
         StatusText { objectName: "frequencyReadback"; text: root.value(LaserProtocol.Frequency, " kHz") }
-        StatusText {
-            text: root.alarms()
-            color: root.readings[LaserProtocol.Alarms] ? "#f2a56c" : palette.windowText
-        }
     }
     GridLayout {
         columns: 2

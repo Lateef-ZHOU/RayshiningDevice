@@ -42,7 +42,7 @@ int main(int argc, char **argv) {
 import Lidar.Rayshining
 LaserStatus {
     width: 400; height: implicitHeight
-    title: "种子模块状态"
+    title: "激光状态"
     widthOptions: [{code: 0, value: 200}]
     readings: ({"24": 1, "128": 5, "129": 2, "130": 0, "7": 1024, "132": 0,
         "147": "1550", "148": "-ACI", "149": "-MP",
@@ -84,8 +84,9 @@ import Lidar.Rayshining
 LaserModule {
     width: 1280; height: 900
     property int displayedLogs: 0
+    property string lastLog: ""
     property int widthListUpdates: 0
-    onLogMessage: ++displayedLogs
+    onLogMessage: text => { ++displayedLogs; lastLog = text }
     onWidthOptionsChanged: ++widthListUpdates
 }
 )QML", QUrl());
@@ -191,6 +192,20 @@ LaserModule {
     Q_EMIT device->replyReady({}, Reply{Module::Amplifier, Command::StopReply, 0, {}});
     require(logs == 0, "amplifier acknowledgements never trigger follow-up commands");
     require(page->property("displayedLogs").toInt() == 0, "amplifier replies have no UI or diagnostic side effects");
+    Q_EMIT device->replyReady({}, Reply{Module::Seed, Command::ReadReply, 0, {{Register::Alarms, quint16(0)}}});
+    require(page->property("displayedLogs").toInt() == 0, "initial healthy status does not fill the log");
+    Q_EMIT device->replyReady({}, Reply{Module::Seed, Command::ReadReply, 0, {{Register::Alarms, quint16(0x8020)}}});
+    require(page->property("displayedLogs").toInt() == 1
+            && page->property("lastLog").toString().contains(QStringLiteral("PA1过流"))
+            && page->property("lastLog").toString().contains(QStringLiteral("供电电压")),
+            "received alarm bits are logged together with their meaning");
+    Q_EMIT device->replyReady({}, Reply{Module::Seed, Command::ReadReply, 0, {{Register::Alarms, quint16(0x8020)}}});
+    Q_EMIT device->replyReady({}, Reply{Module::Seed, Command::ReadReply, 0, {{Register::Power, quint32(0)}}});
+    require(page->property("displayedLogs").toInt() == 1, "unchanged alarms and unrelated replies do not repeat the log");
+    Q_EMIT device->replyReady({}, Reply{Module::Seed, Command::ReadReply, 0, {{Register::Alarms, quint16(0)}}});
+    require(page->property("displayedLogs").toInt() == 2
+            && page->property("lastLog").toString() == QStringLiteral("激光报警已解除") && logs == 0,
+            "cleared alarm is logged without triggering another command");
     require(powerInput->setProperty("value", 37) && logs == 0, "editing power does not send commands");
     Q_EMIT device->replyReady({}, Reply{Module::Seed, Command::ReadReply, 0, {{Register::Power, quint32(25)}}});
     require(page->property("seedReadings").value<QJSValue>().toVariant().toMap().value("129").toInt() == 25
