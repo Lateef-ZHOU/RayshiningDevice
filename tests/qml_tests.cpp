@@ -23,7 +23,11 @@ int main(int argc, char **argv) {
     QQmlComponent component(&engine);
     component.setData(R"QML(import QtQuick
 import Lidar.Rayshining
-LaserModule { width: 1280; height: 900; polling: false }
+LaserModule {
+    width: 1280; height: 900; polling: false
+    property int displayedLogs: 0
+    onLogMessage: ++displayedLogs
+}
 )QML", QUrl());
     std::unique_ptr<QObject> page(component.create());
     if (!page) { qCritical() << component.errors(); return 1; }
@@ -47,6 +51,7 @@ LaserModule { width: 1280; height: 900; polling: false }
     Q_EMIT device->replyReady({}, Reply{Module::Amplifier, Command::EmitReply, 0, {}});
     Q_EMIT device->replyReady({}, Reply{Module::Amplifier, Command::StopReply, 0, {}});
     require(logs == 0, "amplifier acknowledgements never trigger follow-up commands");
+    require(page->property("displayedLogs").toInt() == 3, "amplifier replies remain visible in page log");
     Q_EMIT device->replyReady({}, Reply{Module::Seed, Command::EmitReply, 0, {}});
     require(logs == 1, "empty emission ack initiates exactly one query (offline rejection)");
     Q_EMIT device->replyReady({}, Reply{Module::Seed, Command::ModeReply, 0, {}});
@@ -60,9 +65,14 @@ LaserModule { width: 1280; height: 900; polling: false }
     QVariant result;
     QMetaObject::invokeMethod(page.get(), "sendEmission", Q_RETURN_ARG(QVariant, result));
     require(!result.toBool() && logs == 2, "unknown width does not send emission command");
+    QVariant queried;
+    require(QMetaObject::invokeMethod(page.get(), "query", Q_RETURN_ARG(QVariant, queried),
+        Q_ARG(QVariant, QVariant::fromValue(QVariantList{static_cast<int>(Register::Frequency)})),
+        Q_ARG(QVariant, QVariant(true))), "manual query entry callable");
+    require(!queried.toBool() && logs == 4, "both addresses attempted even when seed query fails");
     QTimer::singleShot(8000, &app, &QCoreApplication::quit);
     const auto code = app.exec();
-    require(!device->isOpen() && logs == 2, "idle eight-second UI has no spontaneous connection or queries");
+    require(!device->isOpen() && logs == 4, "idle eight-second UI has no spontaneous connection or queries");
     std::cout << checks << " QML checks passed\n";
     return code;
 }
