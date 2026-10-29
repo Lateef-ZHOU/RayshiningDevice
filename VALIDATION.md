@@ -1,5 +1,11 @@
 # 验证记录
 
+## 2026-10-29：两模块独立定时查询（用户定）
+
+- QML 定时器每轮分别提交种子、放大模块的六项测量和状态查询，不再读取控制区所选模块；第一条查询失败也不短路第二条。勾选项改为“定时查询种子与放大模块”。手动发令、连接初查、确认补查、解析及图表缓存保持。
+- Windows Qt 6.11.2 / MSVC：增量 Release、RayshiningDevice_qmllint 通过，无编译/QML 警告；既有 QML CTest 1/1（12 项、8 秒离屏）通过。日志 build/build-poll-both.log、build/test-poll-both.log。按小改范围不重复 Linux/协议全套，不新增镜像实现的测试。
+- 本轮未连接实物或发出光命令；放大模块是否回传测量仍由硬件联调确认，不能从空图推断不支持。仅本地提交，主程序使用 FetchContent 源码覆盖联调，不更新远端固定版本或 Release。
+
 ## 2026-10-28：统一连接规格摘要（用户定）
 
 规格摘要从实际 SerialParams 生成，QML 只读显示；连接、协议和轮询不变。Windows Qt 6.11.2 Release 增量构建、qmllint、既有 QML 1/1（12 项、8 秒离屏）通过，无编译/QML 警告。首轮测试未加入 libserialport 运行库搜索路径而超时，补齐 PATH 后通过，未改运行代码或测试超时。证据：build/build-connection-summary.log、build/test-connection-summary.log。未重复 Linux/协议全套，无实物连接；仅本地提交。

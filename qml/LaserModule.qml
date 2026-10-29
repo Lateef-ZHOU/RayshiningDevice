@@ -65,8 +65,12 @@ ModulePage {
         interval: root.pollSeconds * 1000
         repeat: true
         running: root.polling && root.isOpen
-        // 定时只发读取命令；读取回包不会触发响应式查询。
-        onTriggered: root.query(root.measurementRegisters.concat(root.statusRegisters), false)
+        // 两模块独立监测，不跟随手动控制对象；读取回包不会触发响应式查询。
+        onTriggered: {
+            const registers = root.measurementRegisters.concat(root.statusRegisters)
+            internals.device.readRegisters(LaserProtocol.Seed, root.widthIndex, registers)
+            internals.device.readRegisters(LaserProtocol.Amplifier, root.widthIndex, registers)
+        }
     }
     Connections {
         target: internals.device.logSource
@@ -176,7 +180,7 @@ ModulePage {
             Button { text: qsTr("状态与测量"); enabled: root.isOpen; onClicked: root.query(root.statusRegisters.concat(root.measurementRegisters), true) }
             Button { text: qsTr("型号与脉宽"); enabled: root.isOpen; onClicked: root.query(root.identityRegisters, true) }
         }
-        CheckBox { text: qsTr("定时查询当前所选模块"); checked: root.polling; onClicked: root.polling = checked }
+        CheckBox { text: qsTr("定时查询种子与放大模块"); checked: root.polling; onClicked: root.polling = checked }
         RowLayout {
             Label { text: qsTr("间隔 (s)") }
             SpinBox { from: 1; to: 60; value: root.pollSeconds; onValueModified: root.pollSeconds = value }
