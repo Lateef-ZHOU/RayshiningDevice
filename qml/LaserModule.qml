@@ -14,10 +14,11 @@ ModulePage {
     readonly property bool isOpen: internals.device.isOpen
     readonly property bool isLocked: internals.device.isLocked
     readonly property string holder: internals.device.holder
-    // 控制只发种子，查询覆盖两个协议地址；发令成功不预写设备状态。
+    // 当前设备只使用种子地址；表单与回报分开，发令成功不预写设备状态。
     readonly property string portName: portSelector.currentText
     property int widthIndex: 0
     property int frequencyKhz: 10
+    property int powerPercent: 1
     property bool polling: true
     property int pollSeconds: 1
     property bool internalMode: true
@@ -37,20 +38,16 @@ ModulePage {
         readonly property var ports: device.ports()
     }
     function query(registers, manual) {
-        const seedSent = internals.device.readRegisters(LaserProtocol.Seed, widthIndex, registers)
-        const amplifierSent = internals.device.readRegisters(LaserProtocol.Amplifier, widthIndex, registers)
-        if (manual) {
-            if (seedSent) logMessage(qsTr("种子（地址 0）：查询已发送"))
-            if (amplifierSent) logMessage(qsTr("放大（地址 1）：查询已发送"))
-        }
-        return seedSent && amplifierSent
+        const sent = internals.device.readRegisters(LaserProtocol.Seed, widthIndex, registers)
+        if (sent && manual) logMessage(qsTr("种子：查询已发送"))
+        return sent
     }
     function sendEmission() {
         if (!selectedWidth || !selectedWidth.selectable) {
             logMessage(qsTr("请先查询脉宽列表，并选择设备支持的脉宽"))
             return false
         }
-        const sent = internals.device.startEmission(LaserProtocol.Seed, widthIndex, frequencyKhz, 100, selectedWidth.value)
+        const sent = internals.device.startEmission(LaserProtocol.Seed, widthIndex, frequencyKhz, powerPercent, selectedWidth.value)
         if (sent) logMessage(qsTr("种子：设置参数并出光命令已发送"))
         return sent
     }
@@ -65,7 +62,7 @@ ModulePage {
         interval: root.pollSeconds * 1000
         repeat: true
         running: root.polling && root.isOpen
-        // 每轮分别读取两个协议地址；读取回包不会触发响应式查询。
+        // 每轮只读取种子状态和测量值；读取回包不会触发响应式查询。
         onTriggered: root.query(root.measurementRegisters.concat(root.statusRegisters), false)
     }
     Connections {
@@ -76,14 +73,9 @@ ModulePage {
         target: internals.device
         function onTelemetryReady(at, module, values): void {
             if (module === LaserProtocol.Seed) seedChart.append(at, values)
-            else if (module === LaserProtocol.Amplifier)
-                root.logMessage(qsTr("放大（地址 1）：收到有效测量回报"))
         }
         function onReplyReady(at, reply): void {
-            if (reply.module !== LaserProtocol.Seed) {
-                root.logMessage(qsTr("放大（地址 1）：收到有效回报，命令 0x%1").arg(reply.command.toString(16)))
-                return
-            }
+            if (reply.module !== LaserProtocol.Seed) return
             if (reply.command === LaserProtocol.ReadReply) {
                 root.seedReadings = Object.assign({}, root.seedReadings, reply.values)
                 return
@@ -145,7 +137,7 @@ ModulePage {
         }
         RowLayout {
             Label { text: qsTr("功率 (%)") }
-            Label { text: qsTr("100（固定）") }
+            SpinBox { from: 0; to: 100; editable: true; value: root.powerPercent; onValueModified: root.powerPercent = value }
         }
         RowLayout {
             Button { text: qsTr("设置参数并出光"); enabled: root.isOpen; onClicked: root.sendEmission() }
@@ -168,8 +160,7 @@ ModulePage {
             Button { text: qsTr("状态与测量"); enabled: root.isOpen; onClicked: root.query(root.statusRegisters.concat(root.measurementRegisters), true) }
             Button { text: qsTr("型号与脉宽"); enabled: root.isOpen; onClicked: root.query(root.identityRegisters, true) }
         }
-        Label { Layout.fillWidth: true; wrapMode: Text.Wrap; text: qsTr("以下查询均发送至种子（地址 0）和放大（地址 1）。"); opacity: 0.6 }
-        CheckBox { text: qsTr("定时查询种子与放大模块"); checked: root.polling; onClicked: root.polling = checked }
+        CheckBox { text: qsTr("定时查询种子模块"); checked: root.polling; onClicked: root.polling = checked }
         RowLayout {
             Label { text: qsTr("间隔 (s)") }
             SpinBox { from: 1; to: 60; value: root.pollSeconds; onValueModified: root.pollSeconds = value }

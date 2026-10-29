@@ -167,7 +167,7 @@ public:
         }
         QByteArray data(12, '\0');
         qToLittleEndian<quint32>(static_cast<quint32>(frequencyKhz), data.data());
-        qToLittleEndian<quint32>(module == Module::Seed ? 100u : static_cast<quint32>(powerPercent), data.data() + 4);
+        qToLittleEndian<quint32>(static_cast<quint32>(powerPercent), data.data() + 4);
         qToBigEndian<quint32>(static_cast<quint32>(widthNs), data.data() + 8); // 协议开光示例中的脉宽字段为大端。
         return sendCommand(module, Command::Emit, width, data);
     }

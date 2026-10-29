@@ -3,6 +3,7 @@
 #include <iostream>
 #include <QCoreApplication>
 #include <QThread>
+#include <QtEndian>
 #include <Rayshining/LaserDevice.h>
 #include "FakeSerialPort.h"
 namespace {
@@ -29,14 +30,21 @@ int main(int argc, char **argv) {
     require(device.startEmission(Module::Amplifier, 1, 10, 80, 200), "amplifier emission");
     require(FakeSerialPort::writes().back() == encode(1, 0x35, 1, QByteArray::fromHex("0a00000050000000000000c8")), "frequency power little endian and width big endian");
     require(device.startEmission(Module::Seed, 1, 10, 80, 200), "seed emission");
-    require(FakeSerialPort::writes().back() == encode(0, 0x35, 1, QByteArray::fromHex("0a00000064000000000000c8")), "seed always 100 percent");
+    require(FakeSerialPort::writes().back() == QByteArray::fromHex("57484c5300003501000c0a00000050000000000000c8dd6a55"), "seed uses requested power and matches document 80 percent vector");
+    for (const int power : {0, 1, 37, 100}) {
+        require(device.startEmission(Module::Seed, 1, 10, power, 200), "seed power range accepted");
+        const auto frame = FakeSerialPort::writes().back();
+        require(readBe16(frame[4], frame[5]) == 0 && qFromLittleEndian<quint32>(frame.constData() + HeaderSize + 4) == static_cast<quint32>(power),
+                "seed frame carries exact requested power");
+    }
     require(device.stopEmission(Module::Amplifier, 5) && FakeSerialPort::writes().back() == encode(1, 0x36, 5, {}), "targeted stop");
     require(device.setOpticalChannel(3) && FakeSerialPort::writes().back() == encode(0, 0x38, 0, QByteArray::fromHex("0300000000000000")), "channel fixed seed address");
     const auto count = FakeSerialPort::writes().size();
     require(!device.setOpticalChannel(4) && !device.stopEmission(Module::Seed, 256), "no truncation of invalid command parameters");
     require(!device.readRegisters(Module::Seed, -1, {Register::Voltage}), "invalid query width");
     require(!device.startEmission(Module::Seed, 0, 0, 100, 100), "zero frequency rejected");
-    require(!device.startEmission(Module::Amplifier, 0, 10, 101, 100), "invalid power rejected");
+    require(!device.startEmission(Module::Seed, 0, 10, 101, 100), "power above 100 rejected");
+    require(!device.startEmission(Module::Seed, 0, 10, -1, 100), "negative power rejected");
     require(FakeSerialPort::writes().size() == count, "invalid commands do not send");
     auto lock = std::make_shared<DeviceLock>(QStringLiteral("test"));
     require(device.tryLock(lock), "lock held");
