@@ -163,7 +163,7 @@ ModulePage {
         title: qsTr("激光控制")
         FieldRow {
             label: qsTr("脉宽（ns）")
-            ComboBox {
+            ChoiceBox {
                 id: widthSelector
                 objectName: "pulseWidthSelector"
                 Layout.fillWidth: true
@@ -178,7 +178,7 @@ ModulePage {
         }
         FieldRow {
             label: qsTr("频率（kHz）")
-            ComboBox {
+            ChoiceBox {
                 id: frequencySelector
                 objectName: "frequencySelector"
                 Layout.fillWidth: true

@@ -1,5 +1,12 @@
 # 验证记录
 
+## 2026-10-29：下拉弹层统一到 UI 库（用户定）
+
+- 脉宽、频率由 Qt ComboBox 换为 UICore ChoiceBox，仍直接读取 currentIndex/currentValue；串口 ChoiceField 通过同一基类获得上下展开、长列表滚动和空表不弹层。查询、发令、初始空值、稀疏编号与回报状态保持，无新增表单状态。
+- UICore 本地 5d4ccc1：Windows Release、qmllint 无警告，CTest 3/3，Basic 与 FluentWinUI3 各 9 个交互场景通过（含初始化/收尾各 11 项）。验证初始空表、鼠标/键盘、清空/重填、选择接受/拒绝、上下位置和移动后重定位，已查看截图。详细证据见 UICore README。
+- 本仓原 build 增加 FETCHCONTENT_SOURCE_DIR_LIDAR_UICORE 指向相邻 UICore，原有 ChartCore 覆盖保持。Release 增量构建、qmllint 无警告；既有 QML CTest 1/1、97 项通过，含 8 秒离屏，仅既有字体提示，无 QML 运行警告。证据 build/configure-choice.log、build/build-choice.log、build/test-choice.log。
+- 主程序原 build/Release 和原脚本更新后 8 秒冒烟通过，stderr 为空；见主仓维护操作。仅本地提交，正式依赖/Release/dist 不变，不推送、未连接实物、未重跑 Linux/协议全套。
+
 ## 2026-10-29：按钮等分、状态分层与单曲线图例（用户定）
 
 - 三组双按钮各铺满一行且等宽；状态栏按出光/模式、四项数值、型号/SN 三层排布。脉宽用实际回报编号查设备列表，与待发送选项独立；没有新增状态缓存或查询触发。收发、500 ms 查询、断开清理不变。
