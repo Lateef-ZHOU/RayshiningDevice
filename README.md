@@ -2,7 +2,7 @@
 
 2026-10-28 连接显示整理（用户定）：连接区与其他串口设备统一显示波特率、数据位、停止位、校验与流控。只读 connectionDescription 从 LaserHandle::parameters 的实际构参生成；QML 不再硬编码线路规格。
 
-本地开发阶段：协议、环形缓冲成帧器、串口 Handle、C++ 后端和 QML 官邸。`Lidar.Rayshining / LaserModule` 可直接交给工作台，页面唯一拥有自己的具体后端；不分任务族、不创建 Collector。页面不自动连接或出光；用户连接后查询一次所选模块，默认每秒查询一次所选模块的状态和六项测量，可关闭或修改间隔。发布许可证在正式发布前单独确认，厂商文档不纳入仓库。
+功能：协议、环形缓冲成帧器、串口 Handle、C++ 后端和 QML 官邸。`Lidar.Rayshining / LaserModule` 可直接交给工作台，页面唯一拥有自己的具体后端；不分任务族、不创建 Collector。页面不自动连接或出光；用户连接后查询一次所选模块，默认每秒查询一次所选模块的状态和六项测量，可关闭或修改间隔。本仓采用 MIT，署名为 2026 周涛（ZHOU TAO），见 LICENSE 与 THIRD_PARTY_NOTICES.md；厂商文档不纳入仓库。
 
 ## 边界
 
@@ -57,7 +57,7 @@
 
 ## 构建与测试
 
-需要 CMake >= 3.28、C++20、Qt 6.11.2（Core/Qml/Quick/GuiPrivate/ShaderTools）、libserialport >= 0.1.1、Boost.CircularBuffer。默认从 HandleCore 远端拉取固定提交 `379401c85f0da11adde9a2f6fde8fe767fbae707`，只启用 Serial；DeviceCore 固定 `5c63ec5c501d83a15daa65a41dca438ee4ff330f`。界面复用 UICore/ChartCore；尚未发布的图表版本从相邻 ChartCore 本地仓库按提交获取，也可用 `FETCHCONTENT_SOURCE_DIR_LIDAR_CHARTCORE` 指向开发目录。上层已提供目标时直接复用，不依赖 TaskCore。
+需要 CMake >= 3.28、C++20、Qt 6.11.2（Core/Qml/Quick/GuiPrivate/ShaderTools）、libserialport >= 0.1.1、Boost.CircularBuffer。默认从 HandleCore 远端拉取固定提交 `379401c85f0da11adde9a2f6fde8fe767fbae707`，只启用 Serial；DeviceCore 固定 `5c63ec5c501d83a15daa65a41dca438ee4ff330f`。界面复用 UICore/ChartCore；图表版本从 GitHub 的 ChartCore 仓库按完整提交获取，也可用 `FETCHCONTENT_SOURCE_DIR_LIDAR_CHARTCORE` 指向开发目录。上层已提供目标时直接复用，不依赖 TaskCore。
 
 Boost 优先复用上层已有的 `Boost::circular_buffer` 目标，或查找已安装的 Boost >= 1.88 CMake 包；否则自动下载 Boost 1.88.0 官方 CMake 归档，并核验 SHA256。仅启用 CircularBuffer 及其必要的头文件依赖，不编译其他 Boost 库、不增加运行时动态库。首次自动下载约 100 MB；离线构建可通过 `FETCHCONTENT_SOURCE_DIR_BOOST` 指向已解压的同版 CMake 归档。
 
@@ -75,4 +75,4 @@ Windows 运行测试时将 Qt/bin 和 libserialport/bin 加到 PATH；Linux 自�
 
 ## 后续
 
-需要实物确认频率范围、种子/放大实际分工、脉宽列表、光开关能力及回报行为。当前软件验证使用串口替身和离线页面，不代表激光器实测通过。仓库与图表新提交仍未推送，发布前确认许可证并更新远端依赖地址。
+需要实物确认频率范围、种子/放大实际分工、脉宽列表、光开关能力及回报行为。当前软件验证使用串口替身和离线页面，不代表激光器实测通过。公开发布只覆盖本仓自有实现；硬件通信尚待实机测试。

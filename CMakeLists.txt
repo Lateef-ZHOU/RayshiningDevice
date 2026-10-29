@@ -31,9 +31,8 @@ if(NOT TARGET Lidar::DeviceCore)
     FetchContent_MakeAvailable(lidar_device_core)
 endif()
 if(NOT TARGET Lidar::ChartCore)
-    # 尚未发布的图表接口按本地提交固定；正式发布后仅替换仓库地址。
     FetchContent_Declare(lidar_chartcore
-        GIT_REPOSITORY "${CMAKE_CURRENT_SOURCE_DIR}/../ChartCore"
+        GIT_REPOSITORY https://github.com/Lateef-ZHOU/ChartCore.git
         GIT_TAG 5fd7a0663319e085089b6011510a6624ffb0708d)
     FetchContent_MakeAvailable(lidar_chartcore)
 endif()
