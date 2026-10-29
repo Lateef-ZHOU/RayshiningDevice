@@ -2,6 +2,7 @@
 #include <iostream>
 #include <memory>
 #include <QGuiApplication>
+#include <QImage>
 #include <QQmlComponent>
 #include <QQmlEngine>
 #include <QQmlListReference>
@@ -22,6 +23,9 @@ void require(bool v, const char *text) { ++checks; if (!v) { qCritical() << text
 int main(int argc, char **argv) {
     QGuiApplication app(argc, argv);
     QQmlEngine engine;
+    const int captureIndex = app.arguments().indexOf("--capture");
+    const QString capture = captureIndex >= 0 && captureIndex + 1 < app.arguments().size()
+        ? app.arguments()[captureIndex + 1] : QString{};
     {
         QQuickWindow window;
         window.resize(400, 500);
@@ -29,7 +33,9 @@ int main(int argc, char **argv) {
         status.setData(R"QML(import QtQuick
 import Lidar.Rayshining
 LaserStatus {
-    width: 400; height: implicitHeight; connected: true
+    width: 400; height: implicitHeight
+    title: "种子模块状态"
+    widthOptions: [{code: 0, value: 200}]
     readings: ({"24": 1, "128": 5, "129": 2, "130": 0, "7": 1024, "132": 0,
         "147": "1550", "148": "-ACI", "149": "-MP",
         "16": "1550", "17": "0300", "18": "MN26", "160": "0011"})
@@ -48,10 +54,10 @@ LaserStatus {
             for (int i = 0; i < 50; ++i) { QCoreApplication::processEvents(); QThread::msleep(2); }
             for (auto *label : section->findChildren<QQuickItem *>()) {
                 const auto text = label->property("text").toString();
-                if (text.startsWith(QStringLiteral("频率：")))
-                    require(text == QStringLiteral("频率：%1 kHz").arg(frequency), "UI shows returned kHz unchanged");
-                if (text.startsWith(QStringLiteral("SN"))) {
-                    require(text == QStringLiteral("SN：15500300MN260011") && label->property("lineCount").toInt() == 1,
+                if (label->objectName() == "frequencyReadback")
+                    require(text == QStringLiteral("%1 kHz").arg(frequency), "UI shows returned kHz unchanged");
+                if (label->objectName() == "serialReadback") {
+                    require(text == QStringLiteral("15500300MN260011") && label->property("lineCount").toInt() == 1,
                             "complete serial fits one line in the normal sidebar");
                     require(serialWidth == 0 || qFuzzyCompare(label->width(), serialWidth),
                             "serial width does not depend on frequency digit count");
@@ -60,7 +66,10 @@ LaserStatus {
             }
         }
         require(serialWidth > 0, "serial readback was checked");
+        if (!capture.isEmpty()) require(window.grabWindow().save(capture + "-status.png"), "status capture saved");
     }
+    QQuickWindow pageWindow;
+    pageWindow.resize(1280, 900);
     QQmlComponent component(&engine);
     component.setData(R"QML(import QtQuick
 import Lidar.Rayshining
@@ -74,6 +83,24 @@ LaserModule {
 )QML", QUrl());
     std::unique_ptr<QObject> page(component.create());
     if (!page) { qCritical() << component.errors(); return 1; }
+    qobject_cast<QQuickItem *>(page.get())->setParentItem(pageWindow.contentItem());
+    pageWindow.show();
+    for (int i = 0; i < 50; ++i) { QCoreApplication::processEvents(); QThread::msleep(2); }
+    QList<QQuickItem *> buttons;
+    for (auto *item : page->findChildren<QQuickItem *>())
+        if (item->metaObject()->indexOfSignal("clicked()") >= 0) buttons.append(item);
+    for (const auto &pair : {QStringList{QStringLiteral("连接"), QStringLiteral("断开")},
+                           QStringList{QStringLiteral("设置参数并出光"), QStringLiteral("关光")},
+                           QStringList{QStringLiteral("切换为内控"), QStringLiteral("切换为外控")}}) {
+        QQuickItem *left = nullptr, *right = nullptr;
+        for (auto *button : buttons) {
+            if (button->property("text").toString() == pair[0]) left = button;
+            if (button->property("text").toString() == pair[1]) right = button;
+        }
+        require(left && right && qAbs(left->width() - right->width()) <= 1
+                && qAbs(left->x()) <= 1 && qAbs(right->x() + right->width() - right->parentItem()->width()) <= 1,
+                "paired buttons split the full row evenly");
+    }
     auto *device = qobject_cast<Rayshining::LaserDevice *>(qmlAttachedPropertiesObject<Rayshining::LaserDevice>(page.get()));
     require(device && device->parent() == page.get(), "page owns exact backend");
     require(qmlAttachedPropertiesObject<Rayshining::LaserDevice>(page.get()) == device, "unique attached backend");
@@ -219,6 +246,12 @@ LaserModule {
     Q_EMIT device->replyReady({}, Reply{Module::Seed, Command::ReadReply, 0, sixWidths});
     require(widthSelector->property("count").toInt() == 6 && selectedWidth().value("code").toInt() == 1,
             "all six slots can be offered without a hardcoded four-option limit");
+    require(page->findChild<QObject *>("widthReadback")->property("text").toString() == "111 ns",
+            "pulse readback maps reported code zero, independently of selected code one");
+    if (!capture.isEmpty()) {
+        for (int i = 0; i < 50; ++i) { QCoreApplication::processEvents(); QThread::msleep(2); }
+        require(pageWindow.grabWindow().save(capture + "-page.png"), "page capture saved");
+    }
     for (auto &reading : sixWidths) reading.value = PulseWidthOption{false, 0};
     Q_EMIT device->replyReady({}, Reply{Module::Seed, Command::ReadReply, 0, sixWidths});
     require(widthSelector->property("count").toInt() == 0 && widthSelector->property("currentIndex").toInt() == -1,

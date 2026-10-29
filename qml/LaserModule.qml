@@ -132,7 +132,7 @@ ModulePage {
     readonly property Section seedStatus: LaserStatus {
         title: qsTr("种子模块状态")
         readings: root.seedReadings
-        connected: root.isOpen
+        widthOptions: root.widthOptions
     }
     readonly property Section connection: Section {
         title: qsTr("设备连接")
@@ -152,8 +152,11 @@ ModulePage {
             text: internals.device.connectionDescription
         }
         RowLayout {
-            Button { text: qsTr("连接"); onClicked: { if (internals.device.open(root.portName)) root.logMessage(qsTr("连接请求已提交")) } }
-            Button { text: qsTr("断开"); onClicked: internals.device.close() }
+            Layout.fillWidth: true
+            uniformCellSizes: true
+            spacing: 8
+            Button { Layout.fillWidth: true; text: qsTr("连接"); onClicked: { if (internals.device.open(root.portName)) root.logMessage(qsTr("连接请求已提交")) } }
+            Button { Layout.fillWidth: true; text: qsTr("断开"); onClicked: internals.device.close() }
         }
     }
     readonly property Section control: Section {
@@ -197,8 +200,12 @@ ModulePage {
             }
         }
         RowLayout {
-            Button { text: qsTr("设置参数并出光"); onClicked: root.sendEmission() }
+            Layout.fillWidth: true
+            uniformCellSizes: true
+            spacing: 8
+            Button { Layout.fillWidth: true; text: qsTr("设置参数并出光"); onClicked: root.sendEmission() }
             Button {
+                Layout.fillWidth: true
                 text: qsTr("关光")
                 onClicked: {
                     const width = root.widthOptions[widthSelector.currentIndex]
@@ -208,8 +215,11 @@ ModulePage {
             }
         }
         RowLayout {
-            Button { text: qsTr("切换为内控"); onClicked: { if (internals.device.setControlMode(true)) root.logMessage(qsTr("切换内控命令已发送")) } }
-            Button { text: qsTr("切换为外控"); onClicked: { if (internals.device.setControlMode(false)) root.logMessage(qsTr("切换外控命令已发送")) } }
+            Layout.fillWidth: true
+            uniformCellSizes: true
+            spacing: 8
+            Button { Layout.fillWidth: true; text: qsTr("切换为内控"); onClicked: { if (internals.device.setControlMode(true)) root.logMessage(qsTr("切换内控命令已发送")) } }
+            Button { Layout.fillWidth: true; text: qsTr("切换为外控"); onClicked: { if (internals.device.setControlMode(false)) root.logMessage(qsTr("切换外控命令已发送")) } }
         }
     }
 }
