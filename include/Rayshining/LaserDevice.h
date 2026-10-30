@@ -83,62 +83,28 @@ Q_DECLARE_METATYPE(Rayshining::Reply)
 Q_DECLARE_METATYPE(Rayshining::Module)
 
 namespace Rayshining {
-// 激光器尚无任务族或 Collector；直接复用设备身份、状态与锁，Handle 独持收包回调。
-class LaserDevice final : public DeviceBase
+// 两种传输共用同一套型号业务；只在末端选择 Handle，不新增设备族或第二份解析。
+template <HandleLike HandleT>
+class LaserDeviceT : public DeviceBase
 {
-    Q_OBJECT
-    Q_PROPERTY(QString connectionDescription READ connectionDescription CONSTANT)
-    QML_NAMED_ELEMENT(LaserDevice)
-    QML_ATTACHED(LaserDevice)
-    QML_UNCREATABLE("由激光器 QML 官邸拥有")
 public:
-    static LaserDevice *qmlAttachedProperties(QObject *owner) { return new LaserDevice(owner); }
-    explicit LaserDevice(QObject *parent) : DeviceBase(parent), handle_(makeOnStream(this))
+    explicit LaserDeviceT(QObject *parent) : DeviceBase(parent), handle_(makeOnStream(this))
     {
-        static_assert(FinalDevice<LaserDevice, decltype(&LaserDevice::PreDestruction)>);
-        QObject::connect(&handle_, &LaserHandle::connectionChanged, this, [this](bool connected) {
+        QObject::connect(&handle_, &HandleT::connectionChanged, this, [this](bool connected) {
             if (connected)
-                telemetry_ = {}; // 本轮连接的通知先于本轮回报入队；在主线程清空上一轮测量。
+                telemetry_ = {};
             else
                 dropLock();
             Q_EMIT statusChanged();
         });
         QObject::connect(&handle_, &QThread::finished, this, &DeviceBase::statusChanged);
     }
-    ~LaserDevice() override { PreDestruction(); }
     [[nodiscard]] QString displayName() const final { return QStringLiteral("镭晟激光器"); }
-    [[nodiscard]] QString subtitle() const final { return QStringLiteral("串口 · RS-1550-300-MINI"); }
     [[nodiscard]] bool isOpen() const noexcept final { return handle_.isOpen(); }
     [[nodiscard]] QObject *logSourceObject() noexcept final { return &handle_; }
+    void close() { handle_.stop(); }
 
-    [[nodiscard]] QString connectionDescription() const
-    {
-        const auto params = LaserHandle::parameters({});
-        return QStringLiteral("%1 baud · %2 数据位 · %3 停止位\n校验：%4 · 流控：%5")
-            .arg(params.baudRate).arg(toString(params.dataBits)).arg(toString(params.stopBits))
-            .arg(params.parity == SP_PARITY_NONE ? QStringLiteral("无") : toString(params.parity))
-            .arg(params.flowControl == SP_FLOWCONTROL_NONE ? QStringLiteral("无") : QString::number(params.flowControl));
-    }
-
-    // 表单只交端口；协议规格固定，不缓存串口设置或 UI 选择。
-    [[nodiscard]] bool open(const SerialPortInfo &port) { return handle_.start(LaserHandle::parameters(port)); }
-    Q_INVOKABLE bool open(const QString &portName)
-    {
-        if (portName.trimmed().isEmpty()) {
-            Q_EMIT handle_.logMessage(QStringLiteral("请选择串口，连接未提交"));
-            return false;
-        }
-        return open(SerialPortInfo{portName, {}});
-    }
-    Q_INVOKABLE QStringList ports() const
-    {
-        QStringList names;
-        for (const auto &port : availablePorts()) names.append(port.portName);
-        return names;
-    }
-    Q_INVOKABLE void close() { handle_.stop(); }
-
-    Q_INVOKABLE bool readRegisters(Module module, int width, const QList<Register> &addresses)
+    bool readRegisters(Module module, int width, const QList<Register> &addresses)
     {
         if ((module != Module::Seed && module != Module::Amplifier) || width < 0 || width > 5
             || addresses.isEmpty() || addresses.size() > static_cast<qsizetype>(MaxDataSize / 4)) {
@@ -160,7 +126,7 @@ public:
         return handle_.send(makeBody(static_cast<quint16>(module), static_cast<quint8>(Command::Read), static_cast<quint8>(width), data));
     }
 
-    Q_INVOKABLE bool startEmission(Module module, int width, int frequencyKhz, int powerPercent, int widthNs)
+    bool startEmission(Module module, int width, int frequencyKhz, int powerPercent, int widthNs)
     {
         if (frequencyKhz <= 0 || powerPercent < 0 || powerPercent > 100 || widthNs <= 0 || widthNs > 0x00ffffff) {
             Q_EMIT handle_.logMessage(QStringLiteral("出光参数无效，未发送"));
@@ -172,18 +138,18 @@ public:
         qToBigEndian<quint32>(static_cast<quint32>(widthNs), data.data() + 8); // 协议开光示例中的脉宽字段为大端。
         return sendCommand(module, Command::Emit, width, data);
     }
-    Q_INVOKABLE bool stopEmission(Module module, int width) { return sendCommand(module, Command::Stop, width, {}); }
-    Q_INVOKABLE bool setControlMode(bool internal)
+    bool stopEmission(Module module, int width) { return sendCommand(module, Command::Stop, width, {}); }
+    bool setControlMode(bool internal)
     {
         QByteArray data(8, '\0'); data[0] = internal ? '\1' : '\0';
         return sendCommand(Module::Seed, Command::Mode, 0, data);
     }
 
-Q_SIGNALS:
+public:
     // 非绘图寄存器和命令确认：不缓存状态，成功解析后直接交显示业务。
-    void replyReady(RxTime at, const Rayshining::Reply &reply);
+    virtual void replyReady(RxTime at, const Rayshining::Reply &reply) = 0;
     // 同包最多一次完整快照。六值均使用本包时刻；尚未收到过的量为 NaN。
-    void telemetryReady(RxTime at, Rayshining::Module module, const QVariantMap &values);
+    virtual void telemetryReady(RxTime at, Rayshining::Module module, const QVariantMap &values) = 0;
 
 private:
     [[nodiscard]] bool sendCommand(Module module, Command command, int width, const QByteArray &data)
@@ -221,16 +187,19 @@ private:
         }
         return std::nullopt;
     }
-    void PreDestruction() noexcept final
+protected:
+    HandleT &handle() noexcept { return handle_; }
+    void PreDestruction() noexcept override
     {
         handle_.stop(); // 等待回调退出后，才撤借用和清理本对象。
         Q_EMIT retiring();
         DeviceBase::PreDestruction();
     }
-    [[nodiscard]] static DataCallback makeOnStream(LaserDevice *self)
+private:
+    [[nodiscard]] static DataCallback makeOnStream(LaserDeviceT *self)
     {
         return [self](const QByteArray &body, RxTime at) {
-            // Handle 已校验外层帧；本回调解释主体，失败就地记录，不交出半份结果。
+            // 串口 Handle 或板端桥接器已处理外层帧；两路都解释同一主体。
             constexpr qsizetype metadataSize = HeaderSize - FrameHeadSize;
             if (body.size() < metadataSize || body.size() != metadataSize + readBe16(body[4], body[5])) {
                 Q_EMIT self->handle_.logMessage(QStringLiteral("激光器回包主体长度不符"));
@@ -365,7 +334,64 @@ private:
         };
     }
     std::array<Telemetry, 2> telemetry_; // 种子/放大各一份六值缓存；仅主线程读写，不保存图表历史。
-    LaserHandle handle_;
+    HandleT handle_;
+};
+class LaserDevice final
+#ifdef Q_MOC_RUN
+    : public DeviceBase
+#else
+    : public LaserDeviceT<LaserHandle>
+#endif
+{
+    Q_OBJECT
+    Q_PROPERTY(QString connectionDescription READ connectionDescription CONSTANT)
+    QML_NAMED_ELEMENT(LaserDevice)
+    QML_ATTACHED(LaserDevice)
+    QML_UNCREATABLE("由串口激光器 QML 官邸拥有")
+    using Base = LaserDeviceT<LaserHandle>;
+public:
+    static LaserDevice *qmlAttachedProperties(QObject *owner) { return new LaserDevice(owner); }
+    explicit LaserDevice(QObject *parent) : Base(parent)
+    { static_assert(FinalDevice<LaserDevice, decltype(&LaserDevice::PreDestruction)>); }
+    ~LaserDevice() override { PreDestruction(); }
+    [[nodiscard]] QString subtitle() const final { return QStringLiteral("串口 · RS-1550-300-MINI"); }
+    [[nodiscard]] QString connectionDescription() const
+    {
+        const auto params = LaserHandle::parameters({});
+        return QStringLiteral("%1 baud · %2 数据位 · %3 停止位\n校验：%4 · 流控：%5")
+            .arg(params.baudRate).arg(toString(params.dataBits)).arg(toString(params.stopBits))
+            .arg(params.parity == SP_PARITY_NONE ? QStringLiteral("无") : toString(params.parity))
+            .arg(params.flowControl == SP_FLOWCONTROL_NONE ? QStringLiteral("无") : QString::number(params.flowControl));
+    }
+
+    // 表单只交端口；协议规格固定，不缓存串口设置或 UI 选择。
+    [[nodiscard]] bool open(const SerialPortInfo &port) { return handle().start(LaserHandle::parameters(port)); }
+    Q_INVOKABLE bool open(const QString &portName)
+    {
+        if (portName.trimmed().isEmpty()) {
+            Q_EMIT handle().logMessage(QStringLiteral("请选择串口，连接未提交"));
+            return false;
+        }
+        return open(SerialPortInfo{portName, {}});
+    }
+    Q_INVOKABLE QStringList ports() const
+    {
+        QStringList names;
+        for (const auto &port : availablePorts()) names.append(port.portName);
+        return names;
+    }
+    Q_INVOKABLE void close() { Base::close(); }
+    Q_INVOKABLE bool readRegisters(Module module, int width, const QList<Register> &addresses)
+    { return Base::readRegisters(module, width, addresses); }
+    Q_INVOKABLE bool startEmission(Module module, int width, int frequencyKhz, int powerPercent, int widthNs)
+    { return Base::startEmission(module, width, frequencyKhz, powerPercent, widthNs); }
+    Q_INVOKABLE bool stopEmission(Module module, int width) { return Base::stopEmission(module, width); }
+    Q_INVOKABLE bool setControlMode(bool internal) { return Base::setControlMode(internal); }
+Q_SIGNALS:
+    void replyReady(RxTime at, const Rayshining::Reply &reply) override;
+    void telemetryReady(RxTime at, Rayshining::Module module, const QVariantMap &values) override;
+private:
+    void PreDestruction() noexcept final { Base::PreDestruction(); }
 };
 }
 QML_DECLARE_TYPEINFO(Rayshining::LaserDevice, QML_HAS_ATTACHED_PROPERTIES)

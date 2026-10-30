@@ -1,3 +1,4 @@
+#include <Rayshining/LaserUdpDevice.h>
 #include <cstdlib>
 #include <iostream>
 #include <memory>
@@ -20,8 +21,8 @@ Q_IMPORT_QML_PLUGIN(LidarRayshiningPlugin)
 namespace {
 int checks = 0;
 void require(bool v, const char *text) { ++checks; if (!v) { qCritical() << text; std::exit(1); } }
-template<typename Predicate> bool until(Predicate ready) {
-    const auto end = std::chrono::steady_clock::now() + std::chrono::seconds(3);
+template<typename Predicate> bool until(Predicate ready, int timeoutMs = 3000) {
+    const auto end = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeoutMs);
     while (!ready() && std::chrono::steady_clock::now() < end) {
         QCoreApplication::processEvents(); QThread::msleep(1);
     }
@@ -31,6 +32,38 @@ template<typename Predicate> bool until(Predicate ready) {
 int main(int argc, char **argv) {
     QGuiApplication app(argc, argv);
     QQmlEngine engine;
+    const int liveIndex = app.arguments().indexOf("--live-udp");
+    if (liveIndex >= 0) {
+        if (liveIndex + 1 >= app.arguments().size()) return 2;
+        QQmlComponent component(&engine);
+        component.setData("import Lidar.Rayshining\nLaserUdpModule { width: 1280; height: 900 }", QUrl());
+        std::unique_ptr<QObject> page(component.create());
+        if (!page) { qCritical() << component.errors(); return 2; }
+        auto *device = qobject_cast<Rayshining::LaserUdpDevice *>(
+            qmlAttachedPropertiesObject<Rayshining::LaserUdpDevice>(page.get()));
+        const auto names = device->connectionParameters()["networkInterfaceOptions"].toStringList();
+        const int index = names.indexOf(app.arguments()[liveIndex + 1]);
+        if (index < 0) { qCritical() << "Interface not found" << names; return 2; }
+        auto *source = qobject_cast<PcapHandle *>(device->logSourceObject());
+        QObject::connect(source, &PcapHandle::logMessage, &app, [](const QString &text) { qInfo().noquote() << text; });
+        int samples = 0;
+        QObject::connect(device, &Rayshining::LaserUdpDevice::telemetryReady, &app,
+            [&](RxTime, Rayshining::Module, const QVariantMap &values) { ++samples; qInfo() << "sample" << samples << values; });
+        // The real residence sends read-only queries automatically. Never request emission in this probe.
+        if (!device->open(index)) return 3;
+        const bool ready = until([&] {
+            const auto widths = page->property("widthOptions").value<QJSValue>().toVariant().toList();
+            const auto values = page->property("seedReadings").value<QJSValue>().toVariant().toMap();
+            return samples >= 3 && !widths.isEmpty() && values.contains("16") && values.contains("147");
+        }, 12000);
+        qInfo() << "widths" << page->property("widthOptions").value<QJSValue>().toVariant();
+        qInfo() << "readings" << page->property("seedReadings").value<QJSValue>().toVariant();
+        device->close(); // Existing UI disconnect sends one off command, then clears the display.
+        require(!device->isOpen() && !page->findChild<QObject *>("statusTimer")->property("running").toBool(), "live disconnect stops polling");
+        require(page->property("widthOptions").value<QJSValue>().toVariant().toList().isEmpty(), "live disconnect clears widths");
+        qInfo() << (ready ? "LIVE UDP PASS" : "LIVE UDP TIMEOUT") << "samples" << samples;
+        return ready ? 0 : 4;
+    }
     const int captureIndex = app.arguments().indexOf("--capture");
     const QString capture = captureIndex >= 0 && captureIndex + 1 < app.arguments().size()
         ? app.arguments()[captureIndex + 1] : QString{};
@@ -75,6 +108,21 @@ LaserStatus {
         }
         require(serialWidth > 0, "serial readback was checked");
         if (!capture.isEmpty()) require(window.grabWindow().save(capture + "-status.png"), "status capture saved");
+    }
+    {
+        QQmlComponent udp(&engine);
+        udp.setData("import Lidar.Rayshining\nLaserUdpModule {}", QUrl());
+        std::unique_ptr<QObject> page(udp.create());
+        if (!page) qCritical() << udp.errors();
+        require(bool(page), "UDP residence creates shared production page");
+        auto *device = qobject_cast<Rayshining::LaserUdpDevice *>(
+            qmlAttachedPropertiesObject<Rayshining::LaserUdpDevice>(page.get()));
+        require(device && device->parent() == page.get() && !device->isOpen(), "UDP page owns exact offline backend");
+        require(qmlAttachedPropertiesObject<Rayshining::LaserUdpDevice>(page.get()) == device, "unique UDP backend");
+        require(page->findChild<QObject *>("networkInterfaceSelector") != nullptr, "UDP connection uses interface choice");
+        require(QQmlListReference(page.get(), "sections").count() == 3, "UDP reuses control and status sections");
+        require(!device->open(-1), "invalid interface rejected without starting Handle");
+        require(page->property("widthOptions").value<QJSValue>().toVariant().toList().isEmpty(), "UDP widths initially empty");
     }
     QQuickWindow pageWindow;
     pageWindow.resize(1280, 900);
@@ -297,7 +345,7 @@ LaserModule {
     // 真实 QML 官邸和实际 Handle/解析器，仅替换串口 C API，不访问实物。
     FakeSerialPort::reset();
     require(device->open(QStringLiteral("controlled")), "page backend starts controlled serial");
-    require(until([&] { return FakeSerialPort::writes().size() >= 2; }), "connection triggers initial and immediate periodic queries");
+    require(until([&] { return FakeSerialPort::writes().size() >= 2; }), "connection triggers combined initial and subsequent periodic queries");
     auto writes = FakeSerialPort::writes();
     QByteArray initial, periodic;
     for (const auto *name : {"widthRegisters", "identityRegisters"})
@@ -308,8 +356,8 @@ LaserModule {
         for (const auto &address : page->property(name).value<QJSValue>().toVariant().toList()) {
             char bytes[4]; qToLittleEndian<quint32>(address.toUInt(), bytes); periodic.append(bytes, 4);
         }
-    require(writes[0] == encode(makeBody(0, 0x31, 2, initial)) && writes[1] == encode(makeBody(0, 0x31, 2, periodic)),
-            "width/identity query precedes immediate state query, both seed only");
+    require(writes[0] == encode(makeBody(0, 0x31, 2, initial + periodic)) && writes[1] == encode(makeBody(0, 0x31, 2, periodic)),
+            "combined first query includes widths, identity and status; later polling only reads status");
     FakeSerialPort::enqueue(encode(makeBody(0, 0xb1, 0, QByteArray::fromHex("96000000800000c89700000080000190"))));
     require(until([&] { return widthSelector->property("count").toInt() == 3; }), "automatic query reply populates actual pulse choices");
     require(timer->property("running").toBool(), "connection starts timer explicitly");

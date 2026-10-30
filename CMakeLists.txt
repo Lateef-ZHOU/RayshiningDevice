@@ -16,13 +16,14 @@ if(NOT TARGET Boost::circular_buffer)
 endif()
 if(NOT TARGET Lidar::HandleCore)
     set(HANDLECORE_WITH_SERIAL ON CACHE BOOL "Enable serial transport" FORCE)
+    set(HANDLECORE_WITH_PCAP ON CACHE BOOL "Enable UDP transport" FORCE)
     FetchContent_Declare(lidar_handle_core
         GIT_REPOSITORY https://github.com/Lateef-ZHOU/HandleCore.git
         GIT_TAG 3470a1d9f3826f4a666b0e53c29c001f0901fbbd)
     FetchContent_MakeAvailable(lidar_handle_core)
 endif()
-if(NOT TARGET Lidar::Serial)
-    message(FATAL_ERROR "Enable HANDLECORE_WITH_SERIAL before configuring HandleCore")
+if(NOT TARGET Lidar::Serial OR NOT TARGET Lidar::Pcap)
+    message(FATAL_ERROR "Enable HANDLECORE_WITH_SERIAL and HANDLECORE_WITH_PCAP before configuring HandleCore")
 endif()
 if(NOT TARGET Lidar::DeviceCore)
     FetchContent_Declare(lidar_device_core
@@ -42,7 +43,7 @@ foreach(module Lidar::UICore Lidar::ChartCore)
     get_filename_component(import_root "${output}/../.." ABSOLUTE)
     list(APPEND import_paths "${import_root}")
 endforeach()
-set(views qml/LaserModule.qml qml/LaserStatus.qml)
+set(views qml/LaserModule.qml qml/LaserUdpModule.qml qml/LaserPage.qml qml/LaserStatus.qml)
 foreach(view IN LISTS views)
     get_filename_component(name "${view}" NAME)
     set_source_files_properties("${view}" PROPERTIES QT_RESOURCE_ALIAS "${name}")
@@ -51,14 +52,14 @@ qt_add_qml_module(RayshiningDevice STATIC URI Lidar.Rayshining VERSION 1.0
     CLASS_NAME LidarRayshiningPlugin RESOURCE_PREFIX /qt/qml
     OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/Lidar/Rayshining"
     DEPENDENCIES Lidar.UI Lidar.Charts IMPORT_PATH ${import_paths}
-    SOURCES include/Rayshining/LaserHandle.h include/Rayshining/LaserDevice.h
+    SOURCES include/Rayshining/LaserHandle.h include/Rayshining/LaserDevice.h include/Rayshining/LaserUdpDevice.h
     QML_FILES ${views})
 add_library(Lidar::RayshiningDevice ALIAS RayshiningDevice)
 set_target_properties(RayshiningDevice PROPERTIES AUTOMOC ON)
 target_include_directories(RayshiningDevice PUBLIC include PRIVATE include/Rayshining)
 target_compile_features(RayshiningDevice PUBLIC cxx_std_20)
 target_compile_definitions(RayshiningDevice PUBLIC QT_NO_KEYWORDS)
-target_link_libraries(RayshiningDevice PUBLIC Lidar::Serial Lidar::DeviceCore Boost::circular_buffer Lidar::ChartCore)
+target_link_libraries(RayshiningDevice PUBLIC Lidar::Serial Lidar::Pcap Lidar::DeviceCore Boost::circular_buffer Lidar::ChartCore)
 if(MSVC)
     target_compile_options(RayshiningDevice PRIVATE /W4 /utf-8)
     get_target_property(sources RayshiningDevice SOURCES)

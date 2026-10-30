@@ -1,5 +1,15 @@
 # 验证记录
 
+## 2026-10-30：双传输官邸与 PetaLinux 实机桥接
+
+- 串口/UDP 各自的 final 后端独持 Handle；命令、解析与完整六值交付在 LaserDeviceT 唯一实现，LaserPage 复用现有界面业务。没有新任务族、Collector 或传输转发器；未修改 HandleCore。
+- Windows MSVC / Qt 6.11.2：Release 增量构建、五个公开头独立编译、qmllint 通过，无新增编译/QML 诊断；CTest 9/9（20.23 秒），补入显式实机探针后再跑 QML/UDP 2/2（12.35 秒）。Linux ArchHFNL Qt 6.12.0 / GCC：Release、五头、CTest 9/9（12.37 秒）、qmllint 通过。配置时 Qt 私有头版本提醒保持，编译与 lint 日志无警告。
+- UDP 专项覆盖端点、网卡下标校验、直接使用 PcapHandle、ARP 后发送主体、借用接收缓冲复用、主线程完整快照、坏主体拒绝，以及关闭通知在释放句柄前发送一次关光。QML 覆盖两个精确后端的唯一所有权、网卡页面和合并首查。
+- 实机：拔除温控后仅剩物理路径 1-1.4 的串口，确认激光器。Windows “以太网 6” 经 192.168.1.102:55100 ↔ 192.168.1.11:55100 ↔ 板端 /dev/ttyUSB0，生产 LaserUdpModule 初查自动取得 200/400/600/800 ns，型号 1550-ACI-MP、SN 15500300MN260011，并取得至少三次测量。温度约 30.7 ℃、电压约 23.92 V；断开清空候选并停表通过。仅查询及既有关光收尾，未发送出光、调功或运动命令；未宣称所有测量通道或热插拔验证通过。
+- 首查合包避免 Pcap 首连只缓存最新包使列表查询被后续状态查询覆盖。没有修改串口协议、自动查询周期、确认补查或断开流程。
+- 证据：本仓 build/build-udp-final.log、lint-udp.log、test-udp.log、build-live-udp.log、test-udp-final.log、live-udp.log；Linux ~/.cache/lidar-connection-20261029/laser-udp-{configure,build,test,lint}.log。实机探针只在显式 --live-udp 参数下启用，不加入自动 CTest。
+- 仅本地修改和提交；没有推送或新 Release，原有交付包不动。
+
 ## 2026-10-29：Handle 下行统一主体边界（用户定）
 
 - 官邸 makeBody 只生成地址/命令/脉宽号/长度/数据；LaserHandle 检查结构并补 WHLS、CRC16 和 55。上行交付同格式主体，业务解析与线上字节不变，删除旧的四参数完整帧入口。
