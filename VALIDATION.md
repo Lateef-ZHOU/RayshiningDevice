@@ -1,5 +1,13 @@
 # 验证记录
 
+## 2026-10-30：状态样式对齐云台与新增测量项调研（用户定）
+
+- 五列标题采用 TaskCore GimbalSection 的浅色左对齐样式，数值统一 Consolas 13 pt 普通字重；标题“出光”改为“激光输出”。布局仍两行五列，下方型号/SN 和组间距保持，未改查询、回报、缓存或绘图。
+- Windows Qt 6.11.2 / MSVC：qml-tests Release 增量构建及 RayshiningDevice_qmllint 通过，无新增诊断；生产 QML 替身验证 123 项通过，检查状态栏与整页截图，五项及型号/SN 均完整显示。证据 build/build-readout-style.log、test-readout-style.log、readout-style-status.png、readout-style-page.png；主程序固定提交构建和 8 秒冒烟另记其维护操作。本次样式改动未重跑 Linux/协议全套。
+- 调研仅静态读取用户提供的 V1.3.1 PDF、V2.0 手册及原厂 V3.0.48 程序，没有启动厂商程序或对实物发送命令。原厂可执行文件 SHA256：4bbf334de402d3dba9f5c4150ab11a611ac9b6312d6a83d98d939b0622330e71。原件留在用户 Downloads，不进入仓库。
+- 原厂 Form1.Frame_GetParaData 的 0x80 起始分发表中，0x85 分支（IL 偏移 0x14ab）将寄存器值直接 ToSingle 后送 txtSeedCur；0x8F 分支（0x17aa）同样送 txtPZT_Offset，界面单位分别为 A/V。Form1 构造的 Laser_state2 含两个地址，timer1_Tick 将其通过 0x31 发出。证据保存在忽略目录 build/sd-pzt-research；README 只记录映射和接入建议，不复制厂商实现。
+- 生产仍为六值完整快照，新增两项尚未查询或绘制；未宣称本型号实机回报验证通过。PZT 与现有电压范围冲突、MCU 检测的原厂版本差异已写明。仅本地提交，不推送、不发新 Release。
+
 ## 2026-10-30：双传输官邸与 PetaLinux 实机桥接
 
 - 串口/UDP 各自的 final 后端独持 Handle；命令、解析与完整六值交付在 LaserDeviceT 唯一实现，LaserPage 复用现有界面业务。没有新任务族、Collector 或传输转发器；未修改 HandleCore。

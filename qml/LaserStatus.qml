@@ -16,32 +16,38 @@ Section {
         if (addresses.every(address => readings[address] === undefined)) return "—"
         return addresses.map(address => readings[address] === undefined ? "…" : readings[address]).join("").replace(/\0/g, "")
     }
-    component StatusText: Label {
-        font.pixelSize: 14
+    // 与云台读数统一：浅色左对齐标题，下方正常字重的等宽数值。
+    component Readout: Label {
+        color: palette.placeholderText
         Layout.fillWidth: true
-        Layout.preferredWidth: 1
-        horizontalAlignment: Text.AlignHCenter
-        wrapMode: Text.Wrap
+        Layout.preferredWidth: 64
+        elide: Text.ElideRight
+    }
+    component ReadoutValue: Label {
+        font.family: "Consolas"
+        font.pointSize: 13
+        Layout.fillWidth: true
+        Layout.preferredWidth: 64
     }
     GridLayout {
         columns: 5
         uniformCellWidths: true
-        columnSpacing: 8
-        rowSpacing: 6
+        columnSpacing: 10
+        rowSpacing: 2
         Layout.fillWidth: true
-        StatusText { text: qsTr("出光") }
-        StatusText { text: qsTr("模式") }
-        StatusText { text: qsTr("脉宽") }
-        StatusText { text: qsTr("功率") }
-        StatusText { text: qsTr("频率") }
-        StatusText {
+        Readout { text: qsTr("激光输出") }
+        Readout { text: qsTr("模式") }
+        Readout { text: qsTr("脉宽") }
+        Readout { text: qsTr("功率") }
+        Readout { text: qsTr("频率") }
+        ReadoutValue {
             objectName: "emissionReadback"
             text: root.readings[LaserProtocol.Emission] === undefined ? "—" : root.readings[LaserProtocol.Emission] ? qsTr("出光") : qsTr("关光")
         }
-        StatusText {
+        ReadoutValue {
             text: root.readings[LaserProtocol.ControlMode] === undefined ? "—" : (root.readings[LaserProtocol.ControlMode] & 0x400) ? qsTr("内控") : qsTr("外控")
         }
-        StatusText {
+        ReadoutValue {
             objectName: "widthReadback"
             text: {
                 const option = root.widthOptions.find(item => item.code === root.readings[LaserProtocol.WidthIndex])
@@ -49,12 +55,12 @@ Section {
             }
         }
         // 实机功率读口为 0..255；写口仍为百分比，只在显示边界换算。
-        StatusText {
+        ReadoutValue {
             objectName: "powerReadback"
             text: root.readings[LaserProtocol.Power] === undefined ? "—"
                 : (root.readings[LaserProtocol.Power] * 100 / 255).toFixed(1) + " %"
         }
-        StatusText { objectName: "frequencyReadback"; text: root.value(LaserProtocol.Frequency, " kHz") }
+        ReadoutValue { objectName: "frequencyReadback"; text: root.value(LaserProtocol.Frequency, " kHz") }
     }
     GridLayout {
         columns: 2

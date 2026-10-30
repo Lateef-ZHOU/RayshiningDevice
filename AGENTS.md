@@ -1,5 +1,7 @@
 # 维护入口
 
+2026-10-30 最新用户定：激光状态五项沿用云台读数样式，标题为浅色左对齐，数值为 Consolas 13 pt 普通字重；“出光”标题改为“激光输出”，实际出光/关光值仍由设备回报更新。SD 电流与 PZT 偏移量本轮只调研：原厂 V3.0.48 分别查询 0x85/0x8F，并直接按 float32 显示 A/V，尚未在本型号实测或接入生产图表。依据、范围冲突及后续接入边界见 README 和 VALIDATION。仅本地更新，不推送或发 Release。
+
 2026-10-30 最新用户定：保留串口 LaserModule，新增 LaserUdpModule，分别独持 LaserDevice / LaserUdpDevice，模板 LaserDeviceT 与 LaserPage 共用命令、解析、状态和控制。UDP 直接使用 PcapHandle，Windows 192.168.1.102:55100 ↔ PetaLinux 192.168.1.11:55100，UI 仅枚举网卡。上下行都是同一主体，外层 WHLS/CRC/55 由板端 LaserHandle 处理。连接首查将脉宽、身份、状态、测量合为一包后启动 500 ms 轮询，避免首连 ARP 的后一包覆盖；不加状态或重试框架。Windows/Linux 9/9、QML 静态检查及真实板卡查询通过，未发送出光命令。本轮仅本地，详细范围见 VALIDATION。
 
 2026-10-29 最新用户定：LaserHandle 上下行都使用 QByteArray 主体（地址、命令、脉宽号、长度、数据）。官邸只调用 makeBody，TX 校验长度并添加 WHLS、CRC16、55；RX 校验后去掉相同外层。此条取代历史“发送完整帧”约定。线上字节、业务解析、串口和关闭逻辑保持，桥接器可直接转发主体。
