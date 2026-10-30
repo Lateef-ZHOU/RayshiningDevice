@@ -19,7 +19,8 @@ ModulePage {
     property var widthOptions: []
     property var seedReadings: ({})
     readonly property var measurementRegisters: [LaserProtocol.LaserTemperature, LaserProtocol.McuTemperature,
-        LaserProtocol.PA1Current, LaserProtocol.PA2Current, LaserProtocol.PA3Current, LaserProtocol.Voltage]
+        LaserProtocol.PA1Current, LaserProtocol.PA2Current, LaserProtocol.PA3Current, LaserProtocol.Voltage,
+        LaserProtocol.SDCurrent, LaserProtocol.PztOffset]
     readonly property var statusRegisters: [LaserProtocol.Emission, LaserProtocol.Frequency, LaserProtocol.Power,
         LaserProtocol.WidthIndex, LaserProtocol.ControlMode, LaserProtocol.Alarms]
     readonly property var identityRegisters: [LaserProtocol.Model1, LaserProtocol.Model2, LaserProtocol.Model3,
@@ -139,7 +140,7 @@ ModulePage {
         title: qsTr("种子模块")
         contentItem: LaserTelemetryChart {
             id: seedChart
-            configuration: ({temperature: {minimum: 0, maximum: 80}, current: {minimum: 0, maximum: 5}, voltage: {minimum: 15, maximum: 30}, windowSeconds: 120, capacity: 7200})
+            configuration: ({temperature: {minimum: 0, maximum: 80}, current: {minimum: 0, maximum: 5}, voltage: {minimum: 0, maximum: 30}, windowSeconds: 120, capacity: 7200})
         }
     }]
     sections: [connection, seedStatus, control]

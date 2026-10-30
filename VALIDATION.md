@@ -1,5 +1,13 @@
 # 验证记录
 
+## 2026-10-30：SD 电流与 PZT 偏移量接入（用户定）
+
+- 0x85 / 0x8F 追加到既有 0x31 测量查询；解析沿用小端 float32，直接保留 A/V 数值。官邸缓存扩至八项，任一测量项更新即置本包绘图位，整包最多发一次完整快照；坏包不更新缓存，未回报通道保留 NaN。电流图四线、0–5 A；电压图两线、0–30 V。串口/UDP、500 ms 周期、确认补查和关闭链保持。
+- Windows Qt 6.11.2 / MSVC：Release、五个公开头独立编译、qmllint 通过，无新增编译或 QML 诊断。CTest 9/9（20.01 秒）：协议 505、串口交付 13、环形缓冲 109、解析 236、设备 47、快照 49、发令 52、QML 125、UDP 20 项检查通过。覆盖 SD/PZT 单独和合包回报、坏包不污染、非有限值拒绝、断开重置、查询同包且无重复地址、UDP 主体与实际 QML 曲线更新。
+- ChartCore fa8eb354ba7c216ec4827ea7dfd52d01494d3a19 本地固定提交：Release/公开头、qmllint、CTest 2/2 通过；八通道同时间戳和缺字段整包拒绝验证通过。检查 Direct3D11 实际曲线截图，四条电流和两条电压图例及曲线正常，PZT 约 2 V 可见；没有使用离屏软件适配截图判断曲线画质。
+- 清空 ChartCore 源码覆盖，从相邻 Git 仓库固定获取上述提交，核对实际 SHA 后重新构建并跑 QML 1/1（15.65 秒）通过。证据：build/{configure,build,test,lint}-sd-pzt.log、configure-sd-pzt-pin.log、build-sd-pzt-pin.log、test-sd-pzt-pin.log；图表截图见 ChartCore/build/sd-pzt-d3d11.png。
+- 本次未连接实物或修改板端，尚待用户核对本型号的 SD/PZT 实际回报；未重跑 Linux。仅本地提交，不推送、不发 Release。
+
 ## 2026-10-30：状态样式对齐云台与新增测量项调研（用户定）
 
 - 五列标题采用 TaskCore GimbalSection 的浅色左对齐样式，数值统一 Consolas 13 pt 普通字重；标题“出光”改为“激光输出”。布局仍两行五列，下方型号/SN 和组间距保持，未改查询、回报、缓存或绘图。

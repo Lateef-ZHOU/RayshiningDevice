@@ -14,6 +14,7 @@
 #include <QDebug>
 #include <QtQml/QQmlExtensionPlugin>
 #include <Rayshining/LaserDevice.h>
+#include <UI/Chart/LaserTelemetryItem.h>
 #include "FakeSerialPort.h"
 Q_IMPORT_QML_PLUGIN(LidarUIPlugin)
 Q_IMPORT_QML_PLUGIN(LidarChartsPlugin)
@@ -273,7 +274,8 @@ LaserModule {
     require(logs == 2, "channel ack has no invented readback");
     const auto at = std::chrono::system_clock::now();
     Q_EMIT device->telemetryReady(at, Module::Seed, {{"laserTemperature", 30.0}, {"mcuTemperature", 40.0},
-        {"pa1Current", 1.0}, {"pa2Current", 2.0}, {"pa3Current", 3.0}, {"voltage", 24.0}});
+        {"pa1Current", 1.0}, {"pa2Current", 2.0}, {"pa3Current", 3.0}, {"voltage", 24.0},
+        {"sdCurrent", 0.03125}, {"pztOffset", 2.125}});
     require(logs == 2, "graph update never initiates a query");
     QVariant result;
     QMetaObject::invokeMethod(page.get(), "sendEmission", Q_RETURN_ARG(QVariant, result));
@@ -358,6 +360,26 @@ LaserModule {
         }
     require(writes[0] == encode(makeBody(0, 0x31, 2, initial + periodic)) && writes[1] == encode(makeBody(0, 0x31, 2, periodic)),
             "combined first query includes widths, identity and status; later polling only reads status");
+    require(periodic.count(QByteArray::fromHex("85000000")) == 1
+        && periodic.count(QByteArray::fromHex("8f000000")) == 1,
+        "initial and periodic reads include SD and PZT exactly once in the same request");
+    int measuredPackets = 0;
+    RxTime measuredAt;
+    QObject::connect(device, &LaserDevice::telemetryReady, &app,
+        [&](RxTime time, Module, const QVariantMap &) { ++measuredPackets; measuredAt = time; });
+    FakeSerialPort::enqueue(encode(makeBody(0, 0xb1, 0,
+        QByteArray::fromHex("830000000000c041850000000000003d8f00000000001040"))));
+    require(until([&] { return measuredPackets == 1; }), "one reply with SD and PZT produces one graph delivery");
+    auto *currentPlot = page->findChild<LaserTelemetryItem *>("currents");
+    auto *voltagePlot = page->findChild<LaserTelemetryItem *>("voltage");
+    require(currentPlot && voltagePlot && currentPlot->yAxis().hi == 5
+        && voltagePlot->yAxis().lo == 0 && voltagePlot->yAxis().hi == 30, "production ranges show both voltage curves");
+    const double time = std::chrono::duration<double>(measuredAt.time_since_epoch()).count();
+    currentPlot->applyHover(time);
+    voltagePlot->applyHover(time);
+    require(currentPlot->hover() && currentPlot->hover()->text.contains("SD  0.03 A")
+        && voltagePlot->hover() && voltagePlot->hover()->text.contains(QStringLiteral("PZT偏移量  2.25 V")),
+        "actual packet reaches both production plots through the QML residence");
     FakeSerialPort::enqueue(encode(makeBody(0, 0xb1, 0, QByteArray::fromHex("96000000800000c89700000080000190"))));
     require(until([&] { return widthSelector->property("count").toInt() == 3; }), "automatic query reply populates actual pulse choices");
     require(timer->property("running").toBool(), "connection starts timer explicitly");

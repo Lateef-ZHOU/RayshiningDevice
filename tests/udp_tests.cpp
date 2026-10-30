@@ -45,7 +45,8 @@ int main(int argc, char **argv) {
     until([&] { return device.isOpen(); });
     QCoreApplication::processEvents();
     auto session = FakePcap::last();
-    require(device.readRegisters(Module::Seed, 0, {Register::Frequency, Register::Voltage}), "query accepted");
+    require(device.readRegisters(Module::Seed, 0,
+        {Register::Frequency, Register::Voltage, Register::SDCurrent, Register::PztOffset}), "query accepted");
     const auto request = FakePcap::sent().back().bytes;
     require(kindOf(request) == FrameKind::ARPRequest, "MAC is learned rather than hardcoded");
     bool ok = false;
@@ -53,14 +54,17 @@ int main(int argc, char **argv) {
     FakePcap::inject(session, ARPReply(ARPRequest(request), peer));
     until([&] { return FakePcap::sent().size() >= 2; });
     const UDPDatagram sent(FakePcap::sent().back().bytes);
-    require(sent.bodyView() == makeBody(0, 0x31, 0, QByteArray::fromHex("8000000083000000")), "UDP has body only, no WHLS wrapper");
+    require(sent.bodyView() == makeBody(0, 0x31, 0, QByteArray::fromHex("8000000083000000850000008f000000")),
+        "one UDP read contains old and new addresses, body only without WHLS wrapper");
     const auto incoming = [&](const QByteArray &body) {
         const auto arp = ARPRequest(request);
         return UDPDatagram(arp.senderMAC(), peer, arp.targetIP(), arp.senderIP(), 55100, 55100, body);
     };
-    FakePcap::inject(session, incoming(makeBody(0, 0xb1, 0, QByteArray::fromHex("8000000008000000830000000000c041"))));
+    FakePcap::inject(session, incoming(makeBody(0, 0xb1, 0,
+        QByteArray::fromHex("8000000008000000830000000000c041850000000000003d8f00000000000840"))));
     until([&] { return replies == 1 && plots == 1; });
-    require(mainThread && measured["voltage"].toDouble() == 24 && measured.size() == 6,
+    require(mainThread && measured["voltage"].toDouble() == 24 && measured.size() == 8
+        && measured["sdCurrent"].toDouble() == 0.03125 && measured["pztOffset"].toDouble() == 2.125,
         "borrowed UDP buffer decoded before reuse, full snapshot delivered on main thread");
     FakePcap::inject(session, incoming(QByteArray::fromHex("0000b100000800")));
     until([&] { return errors == 1; });

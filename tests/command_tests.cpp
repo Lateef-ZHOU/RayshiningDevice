@@ -23,6 +23,11 @@ int main(int argc, char **argv) {
     require(!device.startEmission(Module::Seed, 0, 10, 100, 100), "offline emission rejected");
     require(device.open(SerialPortInfo{"controlled", {}}) && until([&]{ return device.isOpen(); }), "fake connection");
     require(FakeSerialPort::writes().empty(), "connection does not emit or query by itself");
+    require(device.readRegisters(Module::Seed, 0, {Register::Voltage, Register::SDCurrent, Register::PztOffset}),
+            "SD and PZT can be appended to the existing multi-register read");
+    require(FakeSerialPort::writes().size() == 1
+        && FakeSerialPort::writes().back() == encode(QByteArray::fromHex("00003100000c83000000850000008f000000")),
+        "one ordinary 0x31 query contains three little-endian register addresses");
     require(device.setControlMode(false), "external mode sent");
     require(FakeSerialPort::writes().back() == QByteArray::fromHex("57484c5300003700000800000000000000004a7955"), "document external vector");
     require(device.setControlMode(true), "internal mode sent");

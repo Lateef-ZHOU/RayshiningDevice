@@ -1,5 +1,7 @@
 # 维护入口
 
+2026-10-30 最新用户定：0x85 SD 电流和 0x8F PZT 偏移量直接追加到既有测量查询包，沿用 0x31/0xB1 与小端 float32。官邸唯一最新值缓存扩至八值，收到任一绘图寄存器置本包 plotUpdated，整包结束仅推一次完整快照；坏包不改缓存，未知值仍 NaN。电流图追加 SD、保持 0–5 A，电压图追加 PZT 并用 0–30 V；MCU 与存储结构保持。ChartCore 本地固定 fa8eb354ba7c216ec4827ea7dfd52d01494d3a19；验证见 VALIDATION。仅本地提交，不推送或发 Release。
+
 2026-10-30 最新用户定：激光状态五项沿用云台读数样式，标题为浅色左对齐，数值为 Consolas 13 pt 普通字重；“出光”标题改为“激光输出”，实际出光/关光值仍由设备回报更新。SD 电流与 PZT 偏移量本轮只调研：原厂 V3.0.48 分别查询 0x85/0x8F，并直接按 float32 显示 A/V，尚未在本型号实测或接入生产图表。依据、范围冲突及后续接入边界见 README 和 VALIDATION。仅本地更新，不推送或发 Release。
 
 2026-10-30 最新用户定：保留串口 LaserModule，新增 LaserUdpModule，分别独持 LaserDevice / LaserUdpDevice，模板 LaserDeviceT 与 LaserPage 共用命令、解析、状态和控制。UDP 直接使用 PcapHandle，Windows 192.168.1.102:55100 ↔ PetaLinux 192.168.1.11:55100，UI 仅枚举网卡。上下行都是同一主体，外层 WHLS/CRC/55 由板端 LaserHandle 处理。连接首查将脉宽、身份、状态、测量合为一包后启动 500 ms 轮询，避免首连 ARP 的后一包覆盖；不加状态或重试框架。Windows/Linux 9/9、QML 静态检查及真实板卡查询通过，未发送出光命令。本轮仅本地，详细范围见 VALIDATION。

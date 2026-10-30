@@ -147,8 +147,14 @@ int main(int argc, char **argv)
     require(invalid(body(0, 0xb1, 0, hex("1800000002000000"))), "unknown emission state rejected");
     require(invalid(body(0, 0xb1, 0, hex("8200000006000000"))), "invalid register width rejected");
     require(invalid(body(0, 0xb1, 0, hex("9600000040000064"))), "unknown availability flag rejected");
-    for (const auto word : {"0000c07f", "0000807f", "000080ff"})
-        require(invalid(body(0, 0xb1, 0, hex("83000000") + hex(word))), "NaN and infinity rejected");
+    for (const auto address : {"83000000", "85000000", "8f000000"})
+        for (const auto word : {"0000c07f", "0000807f", "000080ff"})
+            require(invalid(body(0, 0xb1, 0, hex(address) + hex(word))), "NaN and infinity rejected");
+    require(!receiver.receive(body(0, 0xb1, 0, hex("850000000000003d8f00000000000840")))
+        && receiver.telemetry.size() == 1
+        && receiver.telemetry.front().value("sdCurrent").toDouble() == 0.03125
+        && receiver.telemetry.front().value("pztOffset").toDouble() == 2.125,
+        "fixed SD/PZT wire bytes decode as little-endian floats without scaling");
     const auto duplicate = receiver.receive(body(0, 0xb1, 0, hex("80000000010000008000000002000000"))).value();
     require(duplicate.readings.size() == 2 && std::get<quint32>(duplicate.readings[1].value) == 2,
             "duplicate addresses retained in wire order without merging state");

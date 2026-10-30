@@ -67,25 +67,36 @@ int main(int argc, char **argv)
     open();
     receive(encode(makeBody(0, 0xb1, 0, record(Register::LaserTemperature, 30))));
     require(plots.size() == 1 && states.empty(), "telemetry-only packet produces one graph signal, no state signal");
-    require(plots.back().values.size() == 6 && plots.back().values["laserTemperature"].toDouble() == 30,
-            "first partial packet yields complete six-key snapshot");
-    for (const auto key : {"mcuTemperature", "pa1Current", "pa2Current", "pa3Current", "voltage"})
+    require(plots.back().values.size() == 8 && plots.back().values["laserTemperature"].toDouble() == 30,
+            "first partial packet yields complete eight-key snapshot");
+    for (const auto key : {"mcuTemperature", "pa1Current", "pa2Current", "pa3Current", "voltage", "sdCurrent", "pztOffset"})
         require(std::isnan(plots.back().values[key].toDouble()), "unseen value is NaN, never zero");
 
     const auto full = record(Register::LaserTemperature, 31) + record(Register::McuTemperature, 40)
         + record(Register::PA1Current, 1) + record(Register::PA2Current, 2)
-        + record(Register::PA3Current, 3) + record(Register::Voltage, 24);
+        + record(Register::PA3Current, 3) + record(Register::Voltage, 24)
+        + record(Register::SDCurrent, 0.03125f) + record(Register::PztOffset, 2.125f);
     const auto firstAt = std::chrono::system_clock::now();
     receive(encode(makeBody(0, 0xb1, 2, full)));
-    require(plots.size() == 2 && plots.back().at >= firstAt, "six records in one packet produce exactly one snapshot");
+    require(plots.size() == 2 && plots.back().at >= firstAt, "eight records in one packet produce exactly one snapshot");
     const QVariantMap expected{{"laserTemperature", 31.0}, {"mcuTemperature", 40.0},
-        {"pa1Current", 1.0}, {"pa2Current", 2.0}, {"pa3Current", 3.0}, {"voltage", 24.0}};
-    require(plots.back().values == expected, "all six readings committed together");
+        {"pa1Current", 1.0}, {"pa2Current", 2.0}, {"pa3Current", 3.0}, {"voltage", 24.0},
+        {"sdCurrent", 0.03125}, {"pztOffset", 2.125}};
+    require(plots.back().values == expected, "all eight readings committed together");
     receive(encode(makeBody(0, 0xb1, 2, record(Register::Voltage, 25))));
     auto expectedHeld = expected;
     expectedHeld["voltage"] = 25.0;
-    require(plots.size() == 3 && plots.back().values == expectedHeld, "partial packet holds other five values");
+    require(plots.size() == 3 && plots.back().values == expectedHeld, "partial packet holds other seven values");
     require(plots[1].values == expected, "earlier emitted snapshot remains immutable after later updates");
+
+    receive(encode(makeBody(0, 0xb1, 0, record(Register::SDCurrent, 0.0625f))));
+    expectedHeld["sdCurrent"] = 0.0625;
+    require(plots.size() == 4 && plots.back().values == expectedHeld && states.empty(),
+            "SD-only reply triggers one complete snapshot and holds PZT");
+    receive(encode(makeBody(0, 0xb1, 0, record(Register::PztOffset, 2.5f))));
+    expectedHeld["pztOffset"] = 2.5;
+    require(plots.size() == 5 && plots.back().values == expectedHeld && states.empty(),
+            "PZT-only reply triggers one complete snapshot and holds SD");
 
     receive(encode(makeBody(1, 0xb1, 0, record(Register::Voltage, 48))));
     require(plots.back().module == Module::Amplifier && plots.back().values["voltage"].toDouble() == 48
@@ -103,27 +114,33 @@ int main(int argc, char **argv)
     require(plots.size() == plotsBefore + 1 && states.back().readings.size() == 1
             && states.back().readings[0].address == Register::Alarms, "mixed packet emits one state reply and one graph snapshot");
     plotsBefore = plots.size();
-    receive(encode(makeBody(0, 0xb1, 0, record(Register::Voltage, 99) + QByteArray::fromHex("ffffffff00000000"))));
+    receive(encode(makeBody(0, 0xb1, 0, record(Register::Voltage, 99) + record(Register::SDCurrent, 1)
+        + record(Register::PztOffset, 9) + QByteArray::fromHex("ffffffff00000000"))));
     require(plots.size() == plotsBefore && errors == 1, "bad tail rejects entire packet before cache mutation");
     receive(encode(makeBody(0, 0xb1, 0, record(Register::McuTemperature, 41))));
-    require(plots.back().values["voltage"].toDouble() == 27, "rejected packet did not contaminate held voltage");
+    require(plots.back().values["voltage"].toDouble() == 27
+        && plots.back().values["sdCurrent"].toDouble() == 0.0625
+        && plots.back().values["pztOffset"].toDouble() == 2.5,
+        "rejected packet did not contaminate held voltage, SD or PZT");
 
     plotsBefore = plots.size();
     const std::array registers{Register::LaserTemperature, Register::McuTemperature, Register::PA1Current,
-        Register::PA2Current, Register::PA3Current, Register::Voltage};
-    QByteArray sixPackets;
-    for (const auto address : registers) sixPackets += encode(makeBody(0, 0xb1, 0, record(address, 5)));
-    receive(sixPackets);
-    require(plots.size() == plotsBefore + 6, "six packets produce six complete snapshots without cross-packet waiting");
+        Register::PA2Current, Register::PA3Current, Register::Voltage, Register::SDCurrent, Register::PztOffset};
+    QByteArray packets;
+    for (const auto address : registers) packets += encode(makeBody(0, 0xb1, 0, record(address, 5)));
+    receive(packets);
+    require(plots.size() == plotsBefore + 8, "eight packets produce eight complete snapshots without cross-packet waiting");
     for (auto i = plotsBefore; i < plots.size(); ++i)
-        require(plots[i].values.size() == 6, "each packet maintains a full aligned sample row");
+        require(plots[i].values.size() == 8, "each packet maintains a full aligned sample row");
     require(mainThread && FakeSerialPort::writes().empty(), "main-thread delivery never initiates queries");
 
     device.close();
     open();
     receive(encode(makeBody(0, 0xb1, 0, record(Register::Voltage, 12))));
     require(plots.back().values["voltage"].toDouble() == 12
-            && std::isnan(plots.back().values["laserTemperature"].toDouble()), "new explicit connection starts with unknown cached values");
+            && std::isnan(plots.back().values["laserTemperature"].toDouble())
+            && std::isnan(plots.back().values["sdCurrent"].toDouble())
+            && std::isnan(plots.back().values["pztOffset"].toDouble()), "new explicit connection starts with unknown cached values");
     device.close();
     std::cout << checks << " checks passed\n";
 }

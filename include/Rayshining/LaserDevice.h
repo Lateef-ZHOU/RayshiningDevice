@@ -34,8 +34,8 @@ Q_ENUM_NS(Command)
 enum class Register : quint32 {
     ControlMode = 0x07, Serial1 = 0x10, Serial2 = 0x11, Serial3 = 0x12,
     Emission = 0x18, Frequency = 0x80, Power = 0x81, WidthIndex = 0x82,
-    Voltage = 0x83, Alarms = 0x84, PA1Current = 0x86, PA2Current = 0x87,
-    PA3Current = 0x88, LaserTemperature = 0x89, McuTemperature = 0x90,
+    Voltage = 0x83, Alarms = 0x84, SDCurrent = 0x85, PA1Current = 0x86, PA2Current = 0x87,
+    PA3Current = 0x88, LaserTemperature = 0x89, PztOffset = 0x8f, McuTemperature = 0x90,
     Model1 = 0x93, Model2 = 0x94, Model3 = 0x95,
     Width0 = 0x96, Width1 = 0x97, Width2 = 0x98, Width3 = 0x99,
     Width4 = 0x9a, Width5 = 0x9b, Serial4 = 0xa0
@@ -148,7 +148,7 @@ public:
 public:
     // 非绘图寄存器和命令确认：不缓存状态，成功解析后直接交显示业务。
     virtual void replyReady(RxTime at, const Rayshining::Reply &reply) = 0;
-    // 同包最多一次完整快照。六值均使用本包时刻；尚未收到过的量为 NaN。
+    // 同包最多一次完整快照。八值均使用本包时刻；尚未收到过的量为 NaN。
     virtual void telemetryReady(RxTime at, Rayshining::Module module, const QVariantMap &values) = 0;
 
 private:
@@ -167,8 +167,8 @@ private:
     struct Telemetry {
         static constexpr double unknown = std::numeric_limits<double>::quiet_NaN();
         double laserTemperature = unknown, mcuTemperature = unknown;
-        double pa1Current = unknown, pa2Current = unknown, pa3Current = unknown;
-        double voltage = unknown;
+        double pa1Current = unknown, pa2Current = unknown, pa3Current = unknown, sdCurrent = unknown;
+        double voltage = unknown, pztOffset = unknown;
     };
     enum class Format { Bits16, Unsigned32, Float32, Text, Emission, PulseWidth };
     [[nodiscard]] static std::optional<Format> format(Register address) noexcept
@@ -178,6 +178,7 @@ private:
         case Register::Frequency: case Register::Power: case Register::WidthIndex: return Format::Unsigned32;
         case Register::Voltage: case Register::PA1Current: case Register::PA2Current:
         case Register::PA3Current: case Register::LaserTemperature: case Register::McuTemperature:
+        case Register::SDCurrent: case Register::PztOffset:
             return Format::Float32;
         case Register::Serial1: case Register::Serial2: case Register::Serial3: case Register::Serial4:
         case Register::Model1: case Register::Model2: case Register::Model3: return Format::Text;
@@ -311,7 +312,9 @@ private:
                     case Register::PA1Current: destination = &values.pa1Current; break;
                     case Register::PA2Current: destination = &values.pa2Current; break;
                     case Register::PA3Current: destination = &values.pa3Current; break;
+                    case Register::SDCurrent: destination = &values.sdCurrent; break;
                     case Register::Voltage: destination = &values.voltage; break;
+                    case Register::PztOffset: destination = &values.pztOffset; break;
                     default: break;
                     }
                     if (destination) {
@@ -319,7 +322,7 @@ private:
                         plotUpdated = true;
                     }
                 }
-                // 当前协议的 Float32 寄存器恰为六项绘图量；其余状态不经过图表通知。
+                // 当前支持的 Float32 寄存器均为绘图量；其余状态不经过图表通知。
                 std::erase_if(reply.readings, [](const Reading &reading) {
                     return std::holds_alternative<float>(reading.value);
                 });
@@ -329,11 +332,12 @@ private:
                     Q_EMIT self->telemetryReady(at, reply.module,
                         QVariantMap{{"laserTemperature", values.laserTemperature}, {"mcuTemperature", values.mcuTemperature},
                             {"pa1Current", values.pa1Current}, {"pa2Current", values.pa2Current},
-                            {"pa3Current", values.pa3Current}, {"voltage", values.voltage}});
+                            {"pa3Current", values.pa3Current}, {"sdCurrent", values.sdCurrent},
+                            {"voltage", values.voltage}, {"pztOffset", values.pztOffset}});
             }, Qt::QueuedConnection);
         };
     }
-    std::array<Telemetry, 2> telemetry_; // 种子/放大各一份六值缓存；仅主线程读写，不保存图表历史。
+    std::array<Telemetry, 2> telemetry_; // 种子/放大各一份完整缓存；仅主线程读写，不保存图表历史。
     HandleT handle_;
 };
 class LaserDevice final
