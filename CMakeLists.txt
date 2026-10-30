@@ -33,8 +33,8 @@ if(NOT TARGET Lidar::DeviceCore)
 endif()
 if(NOT TARGET Lidar::ChartCore)
     FetchContent_Declare(lidar_chartcore
-        # 八通道版本尚未推送；本机按相邻 Git 仓库的完整提交固定。
-        GIT_REPOSITORY "${CMAKE_CURRENT_LIST_DIR}/../ChartCore"
+        # 固定已发布的八通道绘图版本。
+        GIT_REPOSITORY https://github.com/Lateef-ZHOU/ChartCore.git
         GIT_TAG fa8eb354ba7c216ec4827ea7dfd52d01494d3a19)
     FetchContent_MakeAvailable(lidar_chartcore)
 endif()
