@@ -24,7 +24,7 @@ int main(int argc, char **argv) {
     auto *handle = qobject_cast<PcapHandle *>(device.logSourceObject());
     require(handle != nullptr, "UDP backend directly owns PcapHandle");
     const auto options = device.connectionParameters();
-    require(options["hostIPv4"] == "192.168.1.102" && options["deviceIPv4"] == "192.168.1.11"
+    require(options["hostIPv4"] == "192.168.100.200" && options["deviceIPv4"] == "192.168.100.100"
         && options["hostPort"].toInt() == 55100 && options["devicePort"].toInt() == 55100, "fixed reversed bridge endpoints");
     require(!device.open(-1) && FakePcap::opens() == 0, "bad selection does not open");
     require(!options["networkInterfaceOptions"].toStringList().isEmpty(), "test machine provides an Ethernet interface for enumeration");

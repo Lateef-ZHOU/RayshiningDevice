@@ -10,7 +10,7 @@
 
 ## UDP 桥接版本
 
-主程序本轮装配 LaserUdpModule，原串口 LaserModule 仍可供其他应用直接使用。UDP 页面只选择网卡，固定端点由 LaserUdpDevice 的实际构参给出：Windows `192.168.1.102:55100` ↔ 板端 `192.168.1.11:55100`，MAC 经 ARP 学习。地址须已配置在所选网卡；不是系统 UDP socket，也不额外定义 UDPHandle。
+主程序本轮装配 LaserUdpModule，原串口 LaserModule 仍可供其他应用直接使用。UDP 页面只选择网卡，固定端点由 LaserUdpDevice 的实际构参给出：Windows `192.168.100.200:55100` ↔ 板端 `192.168.100.100:55100`，MAC 经 ARP 学习。地址为 Pcap 报文端点，不要求配置到系统网卡；不是系统 UDP socket，也不额外定义 UDPHandle。
 
 UDP 的一个数据报就是一个 WHLS 主体：地址、命令、脉宽号、长度及数据。板端 BridgeCore/LaserHandle 完成串口外层封装/校验；Windows 解析、显示和命令复用串口版本，不增加第二层封套。UDP 仍遵循 Pcap 的 MTU、首连只暂存最新包及无可靠交付保证，不引入重试状态机。首查合包消除连续初查造成的确定性覆盖，不承诺网络丢包后脉宽必然到达，手动“更新”仍可使用。
 

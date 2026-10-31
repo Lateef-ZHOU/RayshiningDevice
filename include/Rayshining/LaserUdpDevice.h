@@ -61,8 +61,8 @@ private:
     }
     static PcapParams parameters(const NetworkInterfaceInfo &network)
     {
-        return {network, IPv4(QByteArray::fromHex("c0a80166")), IPv4(QByteArray::fromHex("c0a8010b")), {},
-            55100, 55100}; // Windows 192.168.1.102 ↔ PetaLinux 192.168.1.11；MAC 由 ARP 学习。
+        return {network, IPv4(QByteArray::fromHex("c0a864c8")), IPv4(QByteArray::fromHex("c0a86464")), {},
+            55100, 55100}; // Windows 192.168.100.200 ↔ PetaLinux 192.168.100.100；不要求系统配置这些 IP。
     }
 };
 }
