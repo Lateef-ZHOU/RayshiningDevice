@@ -90,14 +90,12 @@ class LaserDeviceT : public DeviceBase
 public:
     explicit LaserDeviceT(QObject *parent) : DeviceBase(parent), handle_(makeOnStream(this))
     {
-        QObject::connect(&handle_, &HandleT::connectionChanged, this, [this](bool connected) {
-            if (connected)
+        QObject::connect(&handle_, &HandleT::connectionChanged, this, [this](HandleCore::ResourcePhase phase) {
+            if (phase == HandleCore::ResourcePhase::Acquired && isOpen())
                 telemetry_ = {};
-            else
+            else if (phase == HandleCore::ResourcePhase::AboutToRelease)
                 dropLock();
-            Q_EMIT statusChanged();
         });
-        QObject::connect(&handle_, &QThread::finished, this, &DeviceBase::statusChanged);
     }
     [[nodiscard]] QString displayName() const final { return QStringLiteral("镭晟激光器"); }
     [[nodiscard]] bool isOpen() const noexcept final { return handle_.isOpen(); }

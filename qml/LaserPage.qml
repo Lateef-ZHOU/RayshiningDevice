@@ -12,9 +12,8 @@ ModulePage {
     readonly property string kind: "device"
     readonly property string name: root.backend.displayName
     readonly property string subtitle: root.backend.subtitle
-    readonly property bool isOpen: root.backend.isOpen
-    readonly property bool isLocked: root.backend.isLocked
-    readonly property string holder: root.backend.holder
+    // 借用公共只读资源接口，不暴露具体型号后端或缓存状态。
+    readonly property var deviceState: root.backend
     // 当前设备只使用种子地址；表单与回报分开，发令成功不预写设备状态。
     property var widthOptions: []
     property var seedReadings: ({})
@@ -100,17 +99,19 @@ ModulePage {
     Connections {
         target: root.backend.logSource
         function onLogMessage(text): void { root.logMessage(text) }
-        function onConnectionChanged(connected): void {
-            if (connected) {
-                // 首连通知可能在关闭后才被主线程处理；已关闭时不重新启动查询。
+        function onConnectionChanged(phase): void {
+            if (phase === ResourcePhase.Acquired) {
+                // 完成事件可能排队延迟；以现有连接为准。
                 if (!root.backend.isOpen) return
                 seedChart.clear()
                 // 首轮合为一包，避免等待 ARP 时后一个请求覆盖脉宽/型号查询。
                 root.query(root.widthRegisters.concat(root.identityRegisters, root.measurementRegisters, root.statusRegisters), false)
                 statusTimer.start()
-            } else {
-                // Handle 尚未促断，发送一次关光；失败也继续清理，不等确认。
+            } else if (phase === ResourcePhase.AboutToRelease) {
+                // 所属线程同步调用，Handle 尚未促断；失败仍继续关闭，不等确认。
                 root.backend.stopEmission(LaserProtocol.Seed, 0)
+                statusTimer.stop()
+            } else if (phase === ResourcePhase.Released && !root.backend.isOpen) {
                 root.seedReadings = ({})
                 root.widthOptions = []
                 widthSelector.currentIndex = -1

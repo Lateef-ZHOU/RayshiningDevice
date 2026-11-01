@@ -70,8 +70,8 @@ int main(int argc, char **argv) {
     until([&] { return errors == 1; });
     require(replies == 1 && plots == 1, "bad body never partially publishes");
     bool closedBeforeSignal = true;
-    QObject::connect(handle, &PcapHandle::connectionChanged, &app, [&](bool connected) {
-        if (!connected) {
+    QObject::connect(handle, &PcapHandle::connectionChanged, &app, [&](HandleCore::ResourcePhase phase) {
+        if (phase == HandleCore::ResourcePhase::AboutToRelease) {
             closedBeforeSignal = session->closed;
             require(device.stopEmission(Module::Seed, 0), "off command can be sent before close");
         }

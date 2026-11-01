@@ -393,24 +393,24 @@ LaserModule {
             && FakeSerialPort::writes().back() == encode(makeBody(0, 0x36, 0, {})) && FakeSerialPort::livePorts() == 0,
             "actual QML disconnect sends one off before serial release");
     require(!timer->property("running").toBool(), "disconnect stops timer synchronously");
-    require(page->property("seedReadings").value<QJSValue>().toVariant().toMap().isEmpty()
+    require(until([&] { return page->property("seedReadings").value<QJSValue>().toVariant().toMap().isEmpty(); })
             && widthSelector->property("count").toInt() == 0
             && powerReadback->property("text").toString().endsWith(QStringLiteral("—")),
             "disconnect restores unknown readbacks and clears old width options");
     require(powerInput->property("value").toInt() == 37 && frequencySelector->property("currentValue").toInt() == 8,
             "disconnect leaves next-command inputs unchanged");
-    require(until([&] { return !page->property("isOpen").toBool(); }), "finished refreshes real open property");
+    require(until([&] { return !device->isOpen(); }), "Released reflects the real connection");
     require(widthSelector->property("count").toInt() == 0, "queued reply cannot refill choices after disconnect");
     const auto closedWrites = FakeSerialPort::writes().size();
     device->close();
     require(FakeSerialPort::writes().size() == closedWrites, "repeated close sends no duplicate off");
-    // 先不泵 GUI，等真正收包后立即关闭：迟到 true 不得重启定时查询。
-    require(device->open(QStringLiteral("controlled")), "start before delayed true");
+    // 先不泵 GUI，等真正收包后立即关闭：迟到 Acquired 不得重启定时查询。
+    require(device->open(QStringLiteral("controlled")), "start before delayed Acquired");
     for (int i = 0; i < 3000 && !device->isOpen(); ++i) QThread::msleep(1);
     require(device->isOpen(), "worker connected without pumping GUI");
     device->close();
     QCoreApplication::processEvents();
-    require(!timer->property("running").toBool(), "delayed true does not restart polling after stop");
+    require(!timer->property("running").toBool(), "delayed Acquired does not restart polling after stop");
     const auto idleWrites = FakeSerialPort::writes().size();
     QTimer::singleShot(8000, &app, &QCoreApplication::quit);
     const auto code = app.exec();

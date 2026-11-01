@@ -1,5 +1,10 @@
 # 验证记录
 
+## 2026-11-02：资源阶段通知（用户定）
+
+- 连接通知统一 ResourcePhase；同步 AboutToRelease 发关光，Released 在确认离线后清空显示及脉宽，Acquired 回读后查询并启用轮询。移除旧 statusChanged/finished 转发，无新增连接缓存。
+- Windows Qt 6.11.2 Release 构建和公开头编译通过；CTest 9/9 通过（16.18 秒），覆盖串口、UDP、命令、完整遥测与真实 QML 接线。记录 build/resource-{configure,build,test}.log。主程序 QML 校验和装配记录见应用维护操作。未连接实物，未重跑本官邸 Linux 验证；依赖版本本地固定，未推送。
+
 ## 2026-10-31：独立业务地址对照（用户定）
 
 - 默认 Windows 192.168.100.200 ↔ 板端 192.168.100.100，端口不变；仅修改型号构参，不改 Handle、Collector、分块或协议。无需将这两个地址配置到系统网卡。

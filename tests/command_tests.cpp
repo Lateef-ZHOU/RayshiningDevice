@@ -67,7 +67,7 @@ int main(int argc, char **argv) {
     require(!device.stopEmission(Module::Seed, 0), "manual command respects lock");
     // 与 QML 一样订阅 Handle 的关闭前通知；Device 先撤锁，业务槽再发送关光。
     QObject::connect(qobject_cast<LaserHandle *>(device.logSourceObject()), &LaserHandle::connectionChanged,
-        &device, [&](bool connected) { if (!connected) (void)device.stopEmission(Module::Seed, 0); });
+        &device, [&](HandleCore::ResourcePhase phase) { if (phase == HandleCore::ResourcePhase::AboutToRelease) (void)device.stopEmission(Module::Seed, 0); });
     const auto beforeClose = FakeSerialPort::writes().size();
     device.close();
     require(!device.isOpen() && FakeSerialPort::livePorts() == 0, "close releases the connection synchronously");
