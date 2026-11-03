@@ -348,7 +348,6 @@ class LaserDevice final
     Q_PROPERTY(bool isOpen READ isOpen)
     Q_PROPERTY(bool isLocked READ isLocked)
     Q_PROPERTY(QString holder READ holder)
-    Q_PROPERTY(QString connectionDescription READ connectionDescription CONSTANT)
     QML_NAMED_ELEMENT(LaserDevice)
     QML_ATTACHED(LaserDevice)
     QML_UNCREATABLE("由串口激光器 QML 官邸拥有")
@@ -359,14 +358,6 @@ public:
     { static_assert(FinalDevice<LaserDevice, decltype(&LaserDevice::PreDestruction)>); }
     ~LaserDevice() override { PreDestruction(); }
     [[nodiscard]] QString subtitle() const final { return QStringLiteral("串口 · RS-1550-300-MINI"); }
-    [[nodiscard]] QString connectionDescription() const
-    {
-        const auto params = LaserHandle::parameters({});
-        return QStringLiteral("%1 baud · %2 数据位 · %3 停止位\n校验：%4 · 流控：%5")
-            .arg(params.baudRate).arg(toString(params.dataBits)).arg(toString(params.stopBits))
-            .arg(params.parity == SP_PARITY_NONE ? QStringLiteral("无") : toString(params.parity))
-            .arg(params.flowControl == SP_FLOWCONTROL_NONE ? QStringLiteral("无") : QString::number(params.flowControl));
-    }
 
     // 表单只交端口；协议规格固定，不缓存串口设置或 UI 选择。
     [[nodiscard]] bool open(const SerialPortInfo &port) { return LaserHandle::start(LaserHandle::parameters(port)); }

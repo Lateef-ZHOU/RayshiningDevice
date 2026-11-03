@@ -25,12 +25,6 @@ LaserPage {
                 onCommitted: i => value = i
             }
         }
-        Label {
-            Layout.fillWidth: true
-            wrapMode: Text.Wrap
-            opacity: 0.6
-            text: internals.device.connectionDescription
-        }
         RowLayout {
             Layout.fillWidth: true
             uniformCellSizes: true
