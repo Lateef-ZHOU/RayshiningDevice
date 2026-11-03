@@ -25,18 +25,18 @@ Q_SIGNALS:
     void logMessage(const QString &text) const final;
 
 private:
-    [[nodiscard]] RXRuling onRX(const QByteArray &body, RxTime at, std::shared_ptr<ConnType>) override
+    [[nodiscard]] RXRuling onRX(const QByteArray &body, RxTime at, std::shared_ptr<SerialConn<Framer>>) override
     {
-        return {RXRuling::Decode, body, at}; // 已校验并去掉外层帧头尾；语义解析归官邸 onStream。
+        return {body, RXRuling::Decode, at}; // 已校验并去掉外层帧头尾；语义解析归官邸 onStream。
     }
-    [[nodiscard]] TXRuling onTX(const QByteArray &body, std::shared_ptr<ConnType>) const override
+    [[nodiscard]] TXRuling onTX(const QByteArray &body, std::shared_ptr<SerialConn<Framer>>) const override
     {
         auto frame = encode(body);
         if (frame.isEmpty()) {
             Q_EMIT logMessage(QStringLiteral("激光器指令主体长度错误，未发送"));
             return {};
         }
-        return {TXRuling::Encode, std::move(frame)};
+        return {std::move(frame), TXRuling::Encode};
     }
 };
 }
