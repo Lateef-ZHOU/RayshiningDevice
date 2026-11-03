@@ -251,3 +251,7 @@ Linux 证据：~/.cache/rayshining-20261027 下 configure.log、build.log、buil
 2026-11-03 用户定：网口连接区仅保留网卡选择和连接/断开，删除 IP、端口等固定参数展示及对应 QML 参数字段；实际连接配置、校验、ARP 和收发关闭行为保持。
 
 Windows 验证：通过主程序本地源码覆盖增量构建，五个网口官邸 qmllint 目标成功；仍有 QObject 属性类型的既有静态提示。八秒离屏冒烟通过，仅既有字体提示；未进行硬件操作或 Linux 验证。证据：LiDAR_DataACQ/build/build-network-ui.log、smoke-network-ui.json。
+
+## 2026-11-03 清理无效构造继承声明（用户定）
+
+删除 LaserHandle 的 using SerialHandle::SerialHandle；基类没有需要继承的自定义构造函数。协议、发送线程、重连及关闭不变。通过主程序相邻源码覆盖完成 Windows/MSVC/Qt 6.11.2 Release 增量构建及八秒离屏冒烟；stderr 仅原有字体提示。HandleCore 本轮 CTest 6/6，包含串口测试。证据在 LiDAR_DataACQ/build/build-serial-cleanup.log、smoke-serial-cleanup.json；本轮未重跑激光器独立专项、Linux 或实物验证，不推送。
