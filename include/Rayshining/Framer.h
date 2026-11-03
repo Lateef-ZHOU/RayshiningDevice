@@ -1,4 +1,5 @@
 #pragma once
+#include <functional>
 #include <algorithm>
 #include <boost/circular_buffer.hpp>
 #include <HandleBase.h>
@@ -9,7 +10,7 @@ namespace Rayshining {
 class Framer
 {
 public:
-    void feed(const QByteArray &chunk, const RxTime at, const DataCallback &deliver)
+    void feed(const QByteArray &chunk, const RxTime at, const std::function<void(const QByteArray &, RxTime)> &deliver)
     {
         for (const char byte : chunk) {
             bytes_.push_back(byte);

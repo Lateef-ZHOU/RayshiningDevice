@@ -235,3 +235,7 @@ Windows 证据：build/build.log、build/Testing/Temporary/LastTest.log。
 Linux 证据：~/.cache/rayshining-20261027 下 configure.log、build.log、build/Testing/Temporary/LastTest.log。
 
 首次构建时测试生成的 Protocol.cpp 与 protocol.cpp 在 Windows 大小写不敏感目录中重名，已改为 header_Protocol.cpp 与 protocol_tests.cpp；最终构建与测试均重新执行通过。
+
+## 2026-11-03 回调类型声明整理
+
+串口 Framer 与测试直接使用 std::function，不再引用 DataCallback；协议解析、轮询和状态逻辑不变。README 同步现有 onData 虚接口与同步交付契约。Windows/MSVC/Qt 6.11.2 Release 和公开头编译通过，CTest 9/9 通过（20.25 秒）；首次执行遗漏运行库 PATH，报 0xc0000135，补齐 Qt/libserialport/Npcap 路径后全部重跑通过。证据 build-virtual-upload/build-callback-alias.log 与 Testing/Temporary/LastTest.log。Linux 桥接器使用本仓生产协议头，构建与 CTest 4/4 通过；本轮未单独重跑 Linux QML，也未连接实物。
