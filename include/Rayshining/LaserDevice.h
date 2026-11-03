@@ -85,49 +85,50 @@ Q_DECLARE_METATYPE(Rayshining::Module)
 namespace Rayshining {
 // 两种传输共用同一套型号业务；只在末端选择 Handle，不新增设备族或第二份解析。
 template <HandleLike HandleT>
-class LaserDeviceT : public DeviceBase
+class LaserDeviceT : public HandleT, public DeviceBase
 {
 public:
-    explicit LaserDeviceT(QObject *parent) : DeviceBase(parent), handle_(makeOnStream(this))
+    explicit LaserDeviceT(QObject *parent) : HandleT()
     {
-        QObject::connect(&handle_, &HandleT::connectionChanged, this, [this](HandleCore::ResourcePhase phase) {
+        this->setParent(parent);
+        QObject::connect(this, &HandleT::connectionChanged, this, [this](HandleCore::ResourcePhase phase) {
             if (phase == HandleCore::ResourcePhase::Acquired && isOpen())
                 telemetry_ = {};
             else if (phase == HandleCore::ResourcePhase::AboutToRelease)
-                dropLock();
+                this->dropLock();
         });
     }
     [[nodiscard]] QString displayName() const final { return QStringLiteral("镭晟激光器"); }
-    [[nodiscard]] bool isOpen() const noexcept final { return handle_.isOpen(); }
-    [[nodiscard]] QObject *logSourceObject() noexcept final { return &handle_; }
-    void close() { handle_.stop(); }
+    [[nodiscard]] bool isOpen() const noexcept final { return HandleT::isOpen(); }
+    [[nodiscard]] QObject *logSourceObject() noexcept final { return this; }
+    void close() { HandleT::stop(); }
 
     bool readRegisters(Module module, int width, const QList<Register> &addresses)
     {
         if ((module != Module::Seed && module != Module::Amplifier) || width < 0 || width > 5
             || addresses.isEmpty() || addresses.size() > static_cast<qsizetype>(MaxDataSize / 4)) {
-            Q_EMIT handle_.logMessage(QStringLiteral("激光器查询参数无效，未发送"));
+            Q_EMIT this->logMessage(QStringLiteral("激光器查询参数无效，未发送"));
             return false;
         }
         QByteArray data(addresses.size() * 4, Qt::Uninitialized);
         for (qsizetype i = 0; i < addresses.size(); ++i) {
             if (!format(addresses[i])) {
-                Q_EMIT handle_.logMessage(QStringLiteral("激光器查询包含未定义寄存器，未发送"));
+                Q_EMIT this->logMessage(QStringLiteral("激光器查询包含未定义寄存器，未发送"));
                 return false;
             }
             qToLittleEndian<quint32>(static_cast<quint32>(addresses[i]), data.data() + i * 4);
         }
-        if (!canEngage({})) {
-            Q_EMIT handle_.logMessage(QStringLiteral("设备未连接或正被占用，激光器查询未发送"));
+        if (!this->canEngage({})) {
+            Q_EMIT this->logMessage(QStringLiteral("设备未连接或正被占用，激光器查询未发送"));
             return false;
         }
-        return handle_.send(makeBody(static_cast<quint16>(module), static_cast<quint8>(Command::Read), static_cast<quint8>(width), data));
+        return HandleT::send(makeBody(static_cast<quint16>(module), static_cast<quint8>(Command::Read), static_cast<quint8>(width), data));
     }
 
     bool startEmission(Module module, int width, int frequencyKhz, int powerPercent, int widthNs)
     {
         if (frequencyKhz <= 0 || powerPercent < 0 || powerPercent > 100 || widthNs <= 0 || widthNs > 0x00ffffff) {
-            Q_EMIT handle_.logMessage(QStringLiteral("出光参数无效，未发送"));
+            Q_EMIT this->logMessage(QStringLiteral("出光参数无效，未发送"));
             return false;
         }
         QByteArray data(12, '\0');
@@ -153,14 +154,14 @@ private:
     [[nodiscard]] bool sendCommand(Module module, Command command, int width, const QByteArray &data)
     {
         if ((module != Module::Seed && module != Module::Amplifier) || width < 0 || width > 5) {
-            Q_EMIT handle_.logMessage(QStringLiteral("激光器目标模块或脉宽号无效，未发送"));
+            Q_EMIT this->logMessage(QStringLiteral("激光器目标模块或脉宽号无效，未发送"));
             return false;
         }
-        if (!canEngage({})) {
-            Q_EMIT handle_.logMessage(QStringLiteral("激光器未连接或正被占用，命令未发送"));
+        if (!this->canEngage({})) {
+            Q_EMIT this->logMessage(QStringLiteral("激光器未连接或正被占用，命令未发送"));
             return false;
         }
-        return handle_.send(makeBody(static_cast<quint16>(module), static_cast<quint8>(command), static_cast<quint8>(width), data));
+        return HandleT::send(makeBody(static_cast<quint16>(module), static_cast<quint8>(command), static_cast<quint8>(width), data));
     }
     struct Telemetry {
         static constexpr double unknown = std::numeric_limits<double>::quiet_NaN();
@@ -187,165 +188,166 @@ private:
         return std::nullopt;
     }
 protected:
-    HandleT &handle() noexcept { return handle_; }
     void PreDestruction() noexcept override
     {
-        handle_.stop(); // 等待回调退出后，才撤借用和清理本对象。
-        Q_EMIT retiring();
+        HandleT::stop(); // 等待回调退出后，才撤借用和清理本对象。
         DeviceBase::PreDestruction();
     }
 private:
-    [[nodiscard]] static DataCallback makeOnStream(LaserDeviceT *self)
+    void onData(const QByteArray &body, RxTime at) final
     {
-        return [self](const QByteArray &body, RxTime at) {
-            // 串口 Handle 或板端桥接器已处理外层帧；两路都解释同一主体。
-            constexpr qsizetype metadataSize = HeaderSize - FrameHeadSize;
-            if (body.size() < metadataSize || body.size() != metadataSize + readBe16(body[4], body[5])) {
-                Q_EMIT self->handle_.logMessage(QStringLiteral("激光器回包主体长度不符"));
+        // 串口 Handle 或板端桥接器已处理外层帧；两路都解释同一主体。
+        constexpr qsizetype metadataSize = HeaderSize - FrameHeadSize;
+        if (body.size() < metadataSize || body.size() != metadataSize + readBe16(body[4], body[5])) {
+            Q_EMIT this->logMessage(QStringLiteral("激光器回包主体长度不符"));
+            return;
+        }
+        const auto module = static_cast<Module>(readBe16(body[0], body[1]));
+        if (module != Module::Seed && module != Module::Amplifier) {
+            Q_EMIT this->logMessage(QStringLiteral("激光器回包模块地址未定义"));
+            return;
+        }
+        const auto command = static_cast<Command>(static_cast<quint8>(body[2]));
+        const auto width = static_cast<quint8>(body[3]);
+        if (width > 5) {
+            Q_EMIT this->logMessage(QStringLiteral("激光器回包脉宽号超出 0..5"));
+            return;
+        }
+        Reply reply{module, command, width, {}};
+        switch (command) {
+        case Command::ModeReply: case Command::ChannelReply:
+            if (module != Module::Seed || width != 0) {
+                Q_EMIT this->logMessage(QStringLiteral("激光器模式/光开关确认的地址与脉宽号必须为 0"));
                 return;
             }
-            const auto module = static_cast<Module>(readBe16(body[0], body[1]));
-            if (module != Module::Seed && module != Module::Amplifier) {
-                Q_EMIT self->handle_.logMessage(QStringLiteral("激光器回包模块地址未定义"));
+            [[fallthrough]];
+        case Command::EmitReply: case Command::StopReply:
+            if (body.size() != metadataSize) {
+                Q_EMIT this->logMessage(QStringLiteral("激光器命令确认不应携带数据"));
                 return;
             }
-            const auto command = static_cast<Command>(static_cast<quint8>(body[2]));
-            const auto width = static_cast<quint8>(body[3]);
-            if (width > 5) {
-                Q_EMIT self->handle_.logMessage(QStringLiteral("激光器回包脉宽号超出 0..5"));
+            break;
+        case Command::ReadReply: {
+            if (body.size() == metadataSize || (body.size() - metadataSize) % 8 != 0) {
+                Q_EMIT this->logMessage(QStringLiteral("激光器读取回包必须包含完整的 8 字节寄存器记录"));
                 return;
             }
-            Reply reply{module, command, width, {}};
-            switch (command) {
-            case Command::ModeReply: case Command::ChannelReply:
-                if (module != Module::Seed || width != 0) {
-                    Q_EMIT self->handle_.logMessage(QStringLiteral("激光器模式/光开关确认的地址与脉宽号必须为 0"));
+            reply.readings.reserve(static_cast<std::size_t>((body.size() - metadataSize) / 8));
+            for (qsizetype offset = metadataSize; offset < body.size(); offset += 8) {
+                const auto rawAddress = qFromLittleEndian<quint32>(body.constData() + offset);
+                const auto address = static_cast<Register>(rawAddress);
+                const auto valueFormat = format(address);
+                if (!valueFormat) {
+                    Q_EMIT this->logMessage(QStringLiteral("激光器回包含未定义寄存器 0x%1")
+                        .arg(rawAddress, 8, 16, QLatin1Char('0')));
                     return;
                 }
-                [[fallthrough]];
-            case Command::EmitReply: case Command::StopReply:
-                if (body.size() != metadataSize) {
-                    Q_EMIT self->handle_.logMessage(QStringLiteral("激光器命令确认不应携带数据"));
-                    return;
-                }
-                break;
-            case Command::ReadReply: {
-                if (body.size() == metadataSize || (body.size() - metadataSize) % 8 != 0) {
-                    Q_EMIT self->handle_.logMessage(QStringLiteral("激光器读取回包必须包含完整的 8 字节寄存器记录"));
-                    return;
-                }
-                reply.readings.reserve(static_cast<std::size_t>((body.size() - metadataSize) / 8));
-                for (qsizetype offset = metadataSize; offset < body.size(); offset += 8) {
-                    const auto rawAddress = qFromLittleEndian<quint32>(body.constData() + offset);
-                    const auto address = static_cast<Register>(rawAddress);
-                    const auto valueFormat = format(address);
-                    if (!valueFormat) {
-                        Q_EMIT self->handle_.logMessage(QStringLiteral("激光器回包含未定义寄存器 0x%1")
-                            .arg(rawAddress, 8, 16, QLatin1Char('0')));
+                const auto *data = body.constData() + offset + 4;
+                RegisterValue value;
+                switch (*valueFormat) {
+                case Format::Bits16:
+                    value = qFromLittleEndian<quint16>(data); // 只解释文档定义的低 16 位
+                    break;
+                case Format::Unsigned32: {
+                    const auto number = qFromLittleEndian<quint32>(data);
+                    if (address == Register::WidthIndex && number > 5) {
+                        Q_EMIT this->logMessage(QStringLiteral("激光器脉宽号寄存器超出 0..5"));
                         return;
                     }
-                    const auto *data = body.constData() + offset + 4;
-                    RegisterValue value;
-                    switch (*valueFormat) {
-                    case Format::Bits16:
-                        value = qFromLittleEndian<quint16>(data); // 只解释文档定义的低 16 位
-                        break;
-                    case Format::Unsigned32: {
-                        const auto number = qFromLittleEndian<quint32>(data);
-                        if (address == Register::WidthIndex && number > 5) {
-                            Q_EMIT self->handle_.logMessage(QStringLiteral("激光器脉宽号寄存器超出 0..5"));
-                            return;
-                        }
-                        value = number;
-                        break;
-                    }
-                    case Format::Float32: {
-                        const auto number = std::bit_cast<float>(qFromLittleEndian<quint32>(data));
-                        if (!std::isfinite(number)) {
-                            Q_EMIT self->handle_.logMessage(QStringLiteral("激光器回包含非有限浮点值"));
-                            return;
-                        }
-                        value = number;
-                        break;
-                    }
-                    case Format::Text:
-                        value = TextWord{data[0], data[1], data[2], data[3]}; // 不丢零字节，不拼接缓存
-                        break;
-                    case Format::Emission:
-                        if (static_cast<quint8>(data[0]) > 1) {
-                            Q_EMIT self->handle_.logMessage(QStringLiteral("激光器回包出光状态未定义"));
-                            return;
-                        }
-                        value = static_cast<EmissionState>(static_cast<quint8>(data[0]));
-                        break;
-                    case Format::PulseWidth: {
-                        const auto flag = static_cast<quint8>(data[0]);
-                        if (flag != 0 && flag != 0x80) {
-                            Q_EMIT self->handle_.logMessage(QStringLiteral("激光器回包脉宽可选标记未定义"));
-                            return;
-                        }
-                        // 文档查询示例的字段例外：首字节标记 + 后三字节大端脉宽。
-                        value = PulseWidthOption{flag == 0x80, qFromBigEndian<quint32>(data) & 0x00ffffffu};
-                        break;
-                    }
-                    }
-                    reply.readings.push_back({address, std::move(value)});
+                    value = number;
+                    break;
                 }
-                break;
-            }
-            default:
-                Q_EMIT self->handle_.logMessage(QStringLiteral("激光器回包命令未定义或属于请求命令"));
-                return;
-            }
-            // 先验证整包，再更新缓存，坏包不会留下前半段测量。缓存与 UI 交付均在主线程。
-            QMetaObject::invokeMethod(self, [self, at, reply = std::move(reply)]() mutable {
-                if (!self->isOpen()) return; // 关闭期间已入队的回包不恢复刚清空的 UI，也不触发补查。
-                auto &values = self->telemetry_[static_cast<std::size_t>(reply.module)];
-                bool plotUpdated = false; // 本包的局部标志，不跨包等待或节流。
-                for (const auto &reading : reply.readings) {
-                    double *destination = nullptr;
-                    switch (reading.address) {
-                    case Register::LaserTemperature: destination = &values.laserTemperature; break;
-                    case Register::McuTemperature: destination = &values.mcuTemperature; break;
-                    case Register::PA1Current: destination = &values.pa1Current; break;
-                    case Register::PA2Current: destination = &values.pa2Current; break;
-                    case Register::PA3Current: destination = &values.pa3Current; break;
-                    case Register::SDCurrent: destination = &values.sdCurrent; break;
-                    case Register::Voltage: destination = &values.voltage; break;
-                    case Register::PztOffset: destination = &values.pztOffset; break;
-                    default: break;
+                case Format::Float32: {
+                    const auto number = std::bit_cast<float>(qFromLittleEndian<quint32>(data));
+                    if (!std::isfinite(number)) {
+                        Q_EMIT this->logMessage(QStringLiteral("激光器回包含非有限浮点值"));
+                        return;
                     }
-                    if (destination) {
-                        *destination = std::get<float>(reading.value);
-                        plotUpdated = true;
-                    }
+                    value = number;
+                    break;
                 }
-                // 当前支持的 Float32 寄存器均为绘图量；其余状态不经过图表通知。
-                std::erase_if(reply.readings, [](const Reading &reading) {
-                    return std::holds_alternative<float>(reading.value);
-                });
-                if (!reply.readings.empty() || reply.command != Command::ReadReply)
-                    Q_EMIT self->replyReady(at, reply);
-                if (plotUpdated)
-                    Q_EMIT self->telemetryReady(at, reply.module,
-                        QVariantMap{{"laserTemperature", values.laserTemperature}, {"mcuTemperature", values.mcuTemperature},
-                            {"pa1Current", values.pa1Current}, {"pa2Current", values.pa2Current},
-                            {"pa3Current", values.pa3Current}, {"sdCurrent", values.sdCurrent},
-                            {"voltage", values.voltage}, {"pztOffset", values.pztOffset}});
-            }, Qt::QueuedConnection);
-        };
+                case Format::Text:
+                    value = TextWord{data[0], data[1], data[2], data[3]}; // 不丢零字节，不拼接缓存
+                    break;
+                case Format::Emission:
+                    if (static_cast<quint8>(data[0]) > 1) {
+                        Q_EMIT this->logMessage(QStringLiteral("激光器回包出光状态未定义"));
+                        return;
+                    }
+                    value = static_cast<EmissionState>(static_cast<quint8>(data[0]));
+                    break;
+                case Format::PulseWidth: {
+                    const auto flag = static_cast<quint8>(data[0]);
+                    if (flag != 0 && flag != 0x80) {
+                        Q_EMIT this->logMessage(QStringLiteral("激光器回包脉宽可选标记未定义"));
+                        return;
+                    }
+                    // 文档查询示例的字段例外：首字节标记 + 后三字节大端脉宽。
+                    value = PulseWidthOption{flag == 0x80, qFromBigEndian<quint32>(data) & 0x00ffffffu};
+                    break;
+                }
+                }
+                reply.readings.push_back({address, std::move(value)});
+            }
+            break;
+        }
+        default:
+            Q_EMIT this->logMessage(QStringLiteral("激光器回包命令未定义或属于请求命令"));
+            return;
+        }
+        // 先验证整包，再更新缓存，坏包不会留下前半段测量。缓存与 UI 交付均在主线程。
+        QMetaObject::invokeMethod(this, [this, at, reply = std::move(reply)]() mutable {
+            if (!this->isOpen()) return; // 关闭期间已入队的回包不恢复刚清空的 UI，也不触发补查。
+            auto &values = this->telemetry_[static_cast<std::size_t>(reply.module)];
+            bool plotUpdated = false; // 本包的局部标志，不跨包等待或节流。
+            for (const auto &reading : reply.readings) {
+                double *destination = nullptr;
+                switch (reading.address) {
+                case Register::LaserTemperature: destination = &values.laserTemperature; break;
+                case Register::McuTemperature: destination = &values.mcuTemperature; break;
+                case Register::PA1Current: destination = &values.pa1Current; break;
+                case Register::PA2Current: destination = &values.pa2Current; break;
+                case Register::PA3Current: destination = &values.pa3Current; break;
+                case Register::SDCurrent: destination = &values.sdCurrent; break;
+                case Register::Voltage: destination = &values.voltage; break;
+                case Register::PztOffset: destination = &values.pztOffset; break;
+                default: break;
+                }
+                if (destination) {
+                    *destination = std::get<float>(reading.value);
+                    plotUpdated = true;
+                }
+            }
+            // 当前支持的 Float32 寄存器均为绘图量；其余状态不经过图表通知。
+            std::erase_if(reply.readings, [](const Reading &reading) {
+                return std::holds_alternative<float>(reading.value);
+            });
+            if (!reply.readings.empty() || reply.command != Command::ReadReply)
+                Q_EMIT this->replyReady(at, reply);
+            if (plotUpdated)
+                Q_EMIT this->telemetryReady(at, reply.module,
+                    QVariantMap{{"laserTemperature", values.laserTemperature}, {"mcuTemperature", values.mcuTemperature},
+                        {"pa1Current", values.pa1Current}, {"pa2Current", values.pa2Current},
+                        {"pa3Current", values.pa3Current}, {"sdCurrent", values.sdCurrent},
+                        {"voltage", values.voltage}, {"pztOffset", values.pztOffset}});
+        }, Qt::QueuedConnection);
     }
     std::array<Telemetry, 2> telemetry_; // 种子/放大各一份完整缓存；仅主线程读写，不保存图表历史。
-    HandleT handle_;
 };
 class LaserDevice final
 #ifdef Q_MOC_RUN
-    : public DeviceBase
+    : public LaserHandle
 #else
     : public LaserDeviceT<LaserHandle>
 #endif
 {
     Q_OBJECT
+    Q_PROPERTY(QString displayName READ displayName CONSTANT)
+    Q_PROPERTY(QString subtitle READ subtitle CONSTANT)
+    Q_PROPERTY(QObject *logSource READ logSourceObject CONSTANT)
+    Q_PROPERTY(bool isOpen READ isOpen)
+    Q_PROPERTY(bool isLocked READ isLocked)
+    Q_PROPERTY(QString holder READ holder)
     Q_PROPERTY(QString connectionDescription READ connectionDescription CONSTANT)
     QML_NAMED_ELEMENT(LaserDevice)
     QML_ATTACHED(LaserDevice)
@@ -367,11 +369,11 @@ public:
     }
 
     // 表单只交端口；协议规格固定，不缓存串口设置或 UI 选择。
-    [[nodiscard]] bool open(const SerialPortInfo &port) { return handle().start(LaserHandle::parameters(port)); }
+    [[nodiscard]] bool open(const SerialPortInfo &port) { return LaserHandle::start(LaserHandle::parameters(port)); }
     Q_INVOKABLE bool open(const QString &portName)
     {
         if (portName.trimmed().isEmpty()) {
-            Q_EMIT handle().logMessage(QStringLiteral("请选择串口，连接未提交"));
+            Q_EMIT logMessage(QStringLiteral("请选择串口，连接未提交"));
             return false;
         }
         return open(SerialPortInfo{portName, {}});
@@ -390,6 +392,7 @@ public:
     Q_INVOKABLE bool stopEmission(Module module, int width) { return Base::stopEmission(module, width); }
     Q_INVOKABLE bool setControlMode(bool internal) { return Base::setControlMode(internal); }
 Q_SIGNALS:
+    void lockChanged(HandleCore::ResourcePhase phase) override;
     void replyReady(RxTime at, const Rayshining::Reply &reply) override;
     void telemetryReady(RxTime at, Rayshining::Module module, const QVariantMap &values) override;
 private:

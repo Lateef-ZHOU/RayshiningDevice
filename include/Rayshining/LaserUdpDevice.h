@@ -6,12 +6,18 @@ namespace Rayshining {
 // 桥接 UDP 的载荷就是协议主体，不再套 WHLS 或第二层业务信封。
 class LaserUdpDevice final
 #ifdef Q_MOC_RUN
-    : public DeviceBase
+    : public PcapHandle
 #else
     : public LaserDeviceT<PcapHandle>
 #endif
 {
     Q_OBJECT
+    Q_PROPERTY(QString displayName READ displayName CONSTANT)
+    Q_PROPERTY(QString subtitle READ subtitle CONSTANT)
+    Q_PROPERTY(QObject *logSource READ logSourceObject CONSTANT)
+    Q_PROPERTY(bool isOpen READ isOpen)
+    Q_PROPERTY(bool isLocked READ isLocked)
+    Q_PROPERTY(QString holder READ holder)
     Q_PROPERTY(QVariantMap connectionParameters READ connectionParameters CONSTANT)
     QML_NAMED_ELEMENT(LaserUdpDevice)
     QML_ATTACHED(LaserUdpDevice)
@@ -35,10 +41,10 @@ public:
     Q_INVOKABLE bool open(int interfaceIndex)
     {
         if (interfaceIndex < 0 || interfaceIndex >= interfaces().size()) {
-            Q_EMIT handle().logMessage(QStringLiteral("未选择有效网卡，连接请求未提交"));
+            Q_EMIT logMessage(QStringLiteral("未选择有效网卡，连接请求未提交"));
             return false;
         }
-        return handle().start(parameters(interfaces()[interfaceIndex]));
+        return PcapHandle::start(parameters(interfaces()[interfaceIndex]));
     }
     Q_INVOKABLE void close() { Base::close(); }
     Q_INVOKABLE bool readRegisters(Module module, int width, const QList<Register> &addresses)
@@ -48,6 +54,7 @@ public:
     Q_INVOKABLE bool stopEmission(Module module, int width) { return Base::stopEmission(module, width); }
     Q_INVOKABLE bool setControlMode(bool internal) { return Base::setControlMode(internal); }
 Q_SIGNALS:
+    void lockChanged(HandleCore::ResourcePhase phase) override;
     void replyReady(RxTime at, const Rayshining::Reply &reply) override;
     void telemetryReady(RxTime at, Rayshining::Module module, const QVariantMap &values) override;
 private:

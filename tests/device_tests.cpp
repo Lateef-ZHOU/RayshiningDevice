@@ -50,8 +50,8 @@ int main(int argc, char **argv)
             timePreserved = timePreserved && at >= before && at <= std::chrono::system_clock::now();
             received.push_back(reply);
         }, Qt::DirectConnection); // signal itself must be emitted on main thread
-        QObject::connect(&device, &DeviceBase::retiring, &app, [&] {
-            retiredClosed = !device.isOpen() && FakeSerialPort::livePorts() == 0;
+        QObject::connect(&device, &QObject::destroyed, &app, [&] {
+            retiredClosed = FakeSerialPort::livePorts() == 0;
         });
         require(!device.readRegisters(Module::Seed, 0, {Register::Frequency}), "offline query rejected");
         require(device.open({"controlled", {}}) && until([&] { return device.isOpen(); }), "device opens");
@@ -88,7 +88,7 @@ int main(int argc, char **argv)
         FakeSerialPort::enqueue(good);
         require(until([&] { return received.size() == 3; }), "receive after reopen");
     }
-    require(retiredClosed && FakeSerialPort::livePorts() == 0, "receive thread stops before retiring");
+    require(retiredClosed && FakeSerialPort::livePorts() == 0, "receive thread stops before QObject destruction");
     require(received[1].readings.size() == 1, "results survive device destruction");
 
     // 不泵主线程队列，先让收包线程排入结果，再删除设备；上下文销毁撤销未交付调用。

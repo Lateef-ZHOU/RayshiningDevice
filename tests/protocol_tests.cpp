@@ -1,3 +1,4 @@
+#include "CallbackHandle.h"
 #include <cstdlib>
 #include <iostream>
 #include <vector>
@@ -112,7 +113,7 @@ int main(int argc, char **argv)
     require(params.baudRate == 115200 && params.dataBits == DataBits::D8
             && params.stopBits == StopBits::One && params.parity == SP_PARITY_NONE
             && params.flowControl == SP_FLOWCONTROL_NONE, "fixed serial configuration");
-    { LaserHandle handle([](const QByteArray &, RxTime) {});
+    { CallbackHandle<LaserHandle> handle([](const QByteArray &, RxTime) {});
       require(!handle.isOpen(), "handle constructs without opening hardware");
       QString diagnostic;
       QObject::connect(&handle, &LaserHandle::logMessage, &app,

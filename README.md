@@ -1,5 +1,7 @@
 2026-10-30 发布更新：ChartCore fa8eb35 已推送，构建入口恢复 GitHub HTTPS 固定完整提交；下方本地联调记录为历史阶段。
 
+2026-11-03 上传接口：LaserDeviceT 直接继承传输 Handle 与纯 C++ DeviceBase，以 onData 虚函数执行原解析；串口/UDP 末端提供 Qt 属性、锁信号并在析构首句预清理。删除上传闭包与 Handle 成员，连接查询、关光和解析逻辑保持。
+
 # 镭晟激光器官邸（RayshiningDevice）
 
 2026-11-02 连接生命周期：串口与 UDP 共用 LaserPage。Acquired 到达后先回读 isOpen，再合并查询脉宽、型号/SN、状态和测量，并启动 500 ms 查询；自动重连成功也执行此初始化。AboutToRelease 在主线程促断前同步尝试一次关光并停表，失败继续关闭、不等待确认。Released 到达且实际已关闭后清空状态/脉宽列表并停表；迟到的旧 Released 不清新连接状态，不再借线程 finished 或布尔连接信号推断。
@@ -116,3 +118,6 @@ V1.3.1 协议表未列出这两个测量项；用户提供的原厂 V3.0.48 上�
 
 连接采用 HandleCore 的 `connectionChanged(ResourcePhase)`；主动关闭前在所属线程同步发 `AboutToRelease`，完成事件用于回读现状。页面借出已有 `deviceState` 机制对象，不再保存 isOpen/isLocked/holder 的 QML 转交属性；标签通过连接/锁完成阶段回读，不恢复通用 statusChanged。固定依赖已同步；本轮提交尚未推送，验证使用显式本地源码覆盖。
 关光和停表位于同步 `AboutToRelease`；`Released` 确认仍离线时清空状态/脉宽选项；`Acquired` 确认在线后发首轮合并查询并启动轮询。不以延迟的完成通知撤单或向新连接发送关光。
+
+
+2026-11-03 验证：Windows Qt 6.11.2 Release、独立头编译与九项协议/解析/命令/串口/UDP/QML 验证 9/9 通过。接口联调使用相邻源码覆盖，新依赖固定为本地提交，尚未推送；未连接实物设备或更新板卡。

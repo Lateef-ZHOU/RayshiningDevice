@@ -1,3 +1,4 @@
+#include "CallbackHandle.h"
 #include <atomic>
 #include <chrono>
 #include <cstdlib>
@@ -40,7 +41,7 @@ int main(int argc, char **argv)
     // 未定义业务字段仍完整上传，由官邸 onStream 决定是否支持。
     const auto opaque = Rayshining::encode(Rayshining::makeBody(0xabcd, 0x42, 0xee, QByteArray::fromHex("0080")));
     {
-        Rayshining::LaserHandle handle([&](const QByteArray &body, RxTime at) {
+        CallbackHandle<Rayshining::LaserHandle> handle([&](const QByteArray &body, RxTime at) {
             worker = worker && QThread::currentThread() != app.thread();
             typedTime = typedTime && at != RxTime{};
             const std::lock_guard lock(gate);

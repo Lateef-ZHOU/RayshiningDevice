@@ -4,12 +4,12 @@
 #include "Framer.h"
 
 namespace Rayshining {
-class LaserHandle final : public SerialHandle<Framer>
+class LaserHandle : public SerialHandle<Framer>
 {
     Q_OBJECT
 public:
     using SerialHandle::SerialHandle;
-    ~LaserHandle() override { stop(); }
+    ~LaserHandle() override = default;
 
     // 固定协议串口规格，调用者只提供端口；连接快照仍由 HandleBase 持有。
     [[nodiscard]] static SerialParams parameters(const SerialPortInfo &port)
