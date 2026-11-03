@@ -83,7 +83,7 @@ int main(int argc, char **argv)
         require(mainThread && timePreserved, "main-thread delivery and unchanged timestamp");
         require(device.tryLock(lock), "lock held before close");
         device.close();
-        require(until([&] { return cancelled && !device.isLocked(); }), "disconnect releases lock through existing notification");
+        require(until([&] { return cancelled && !device.holder().has_value(); }), "disconnect releases lock through existing notification");
         require(device.open({"controlled", {}}) && until([&] { return device.isOpen(); }), "reopen after close");
         FakeSerialPort::enqueue(good);
         require(until([&] { return received.size() == 3; }), "receive after reopen");

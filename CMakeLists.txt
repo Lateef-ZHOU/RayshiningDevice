@@ -28,13 +28,13 @@ endif()
 if(NOT TARGET Lidar::DeviceCore)
     FetchContent_Declare(lidar_device_core
         GIT_REPOSITORY https://github.com/Lateef-ZHOU/DeviceCore.git
-        GIT_TAG 8786616ecd9170b8f2e293d77f542c6ac6faf8da)
+        GIT_TAG 2b59a967a847c9b13844ec8ac5d298ad858b95b5)
     FetchContent_MakeAvailable(lidar_device_core)
 endif()
 if(NOT TARGET Lidar::UICore)
     FetchContent_Declare(lidar_uicore
         GIT_REPOSITORY https://github.com/Lateef-ZHOU/UICore.git
-        GIT_TAG e776364c10a6780fc94beea3cd0e27dc106c3ffe)
+        GIT_TAG 9769fdcd28a8a3fdf98f5dde6163e12c6de88563)
     FetchContent_MakeAvailable(lidar_uicore)
 endif()
 if(NOT TARGET Lidar::ChartCore)

@@ -73,7 +73,7 @@ int main(int argc, char **argv) {
     require(!device.isOpen() && FakeSerialPort::livePorts() == 0, "close releases the connection synchronously");
     require(FakeSerialPort::writes().size() == beforeClose + 1 && FakeSerialPort::writes().back() == encode(makeBody(0, 0x36, 0, {})),
             "forced close sends exactly one seed off command before stopping, even while locked");
-    require(until([&] { return !device.isLocked(); }), "disconnect notification releases lock");
+    require(until([&] { return !device.holder().has_value(); }), "disconnect notification releases lock");
     device.close();
     require(FakeSerialPort::writes().size() == beforeClose + 1, "already disconnected close cannot send another frame");
     require(device.open(SerialPortInfo{"controlled", {}}) && until([&] { return device.isOpen(); }), "reopen for failed close write");

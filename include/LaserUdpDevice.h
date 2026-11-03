@@ -12,11 +12,10 @@ class LaserUdpDevice final
 #endif
 {
     Q_OBJECT
-    Q_PROPERTY(QString displayName READ displayName CONSTANT)
-    Q_PROPERTY(QString subtitle READ subtitle CONSTANT)
+    Q_PROPERTY(QString displayName MEMBER displayName CONSTANT)
+    Q_PROPERTY(QString subtitle MEMBER subtitle CONSTANT)
     Q_PROPERTY(bool isOpen READ isOpen)
-    Q_PROPERTY(bool isLocked READ isLocked)
-    Q_PROPERTY(QString holder READ holder)
+    Q_PROPERTY(QVariant holder READ qmlHolder)
     Q_PROPERTY(QVariantMap connectionParameters READ connectionParameters CONSTANT)
     QML_NAMED_ELEMENT(LaserUdpDevice)
     QML_ATTACHED(LaserUdpDevice)
@@ -24,10 +23,9 @@ class LaserUdpDevice final
     using Base = LaserDeviceT<PcapHandle>;
 public:
     static LaserUdpDevice *qmlAttachedProperties(QObject *owner) { return new LaserUdpDevice(owner); }
-    explicit LaserUdpDevice(QObject *parent) : Base(parent)
+    explicit LaserUdpDevice(QObject *parent) : Base(QStringLiteral("网口 · UDP · RS-1550-300-MINI"), parent)
     { static_assert(FinalDevice<LaserUdpDevice, decltype(&LaserUdpDevice::PreDestruction)>); }
     ~LaserUdpDevice() override { PreDestruction(); }
-    [[nodiscard]] QString subtitle() const final { return QStringLiteral("网口 · UDP · RS-1550-300-MINI"); }
     [[nodiscard]] QVariantMap connectionParameters() const
     {
         QStringList names, tips;

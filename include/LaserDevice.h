@@ -88,7 +88,8 @@ template <HandleLike HandleT>
 class LaserDeviceT : public HandleT, public DeviceBase
 {
 public:
-    explicit LaserDeviceT(QObject *parent) : HandleT()
+    LaserDeviceT(QString detail, QObject *parent)
+        : HandleT(), DeviceBase(QStringLiteral("镭晟激光器"), std::move(detail))
     {
         this->setParent(parent);
         QObject::connect(this, &HandleT::connectionChanged, this, [this](HandleCore::ResourcePhase phase) {
@@ -98,7 +99,11 @@ public:
                 this->dropLock();
         });
     }
-    [[nodiscard]] QString displayName() const final { return QStringLiteral("镭晟激光器"); }
+    [[nodiscard]] QVariant qmlHolder() const
+    {
+        const auto owner = holder();
+        return owner ? QVariant(*owner) : QVariant();
+    }
     [[nodiscard]] bool isOpen() const noexcept final { return HandleT::isOpen(); }
     void close() { HandleT::stop(); }
 
@@ -341,21 +346,19 @@ class LaserDevice final
 #endif
 {
     Q_OBJECT
-    Q_PROPERTY(QString displayName READ displayName CONSTANT)
-    Q_PROPERTY(QString subtitle READ subtitle CONSTANT)
+    Q_PROPERTY(QString displayName MEMBER displayName CONSTANT)
+    Q_PROPERTY(QString subtitle MEMBER subtitle CONSTANT)
     Q_PROPERTY(bool isOpen READ isOpen)
-    Q_PROPERTY(bool isLocked READ isLocked)
-    Q_PROPERTY(QString holder READ holder)
+    Q_PROPERTY(QVariant holder READ qmlHolder)
     QML_NAMED_ELEMENT(LaserDevice)
     QML_ATTACHED(LaserDevice)
     QML_UNCREATABLE("由串口激光器 QML 官邸拥有")
     using Base = LaserDeviceT<LaserHandle>;
 public:
     static LaserDevice *qmlAttachedProperties(QObject *owner) { return new LaserDevice(owner); }
-    explicit LaserDevice(QObject *parent) : Base(parent)
+    explicit LaserDevice(QObject *parent) : Base(QStringLiteral("串口 · RS-1550-300-MINI"), parent)
     { static_assert(FinalDevice<LaserDevice, decltype(&LaserDevice::PreDestruction)>); }
     ~LaserDevice() override { PreDestruction(); }
-    [[nodiscard]] QString subtitle() const final { return QStringLiteral("串口 · RS-1550-300-MINI"); }
 
     // 表单只交端口；协议规格固定，不缓存串口设置或 UI 选择。
     [[nodiscard]] bool open(const SerialPortInfo &port) { return LaserHandle::start(LaserHandle::parameters(port)); }
