@@ -21,7 +21,7 @@ int main(int argc, char **argv) {
     QCoreApplication app(argc, argv);
     FakePcap::reset();
     LaserUdpDevice device(nullptr);
-    auto *handle = qobject_cast<PcapHandle *>(device.logSourceObject());
+    auto *handle = &device;
     require(handle != nullptr, "UDP backend directly owns PcapHandle");
     const auto options = device.connectionParameters();
     require(!options.contains("hostIPv4") && !options.contains("deviceIPv4")

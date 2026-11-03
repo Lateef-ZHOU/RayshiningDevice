@@ -97,7 +97,7 @@ ModulePage {
         onTriggered: root.query(root.measurementRegisters.concat(root.statusRegisters), false)
     }
     Connections {
-        target: root.backend.logSource
+        target: root.backend
         function onLogMessage(text): void { root.logMessage(text) }
         function onConnectionChanged(phase): void {
             if (phase === ResourcePhase.Acquired) {

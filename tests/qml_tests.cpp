@@ -45,7 +45,7 @@ int main(int argc, char **argv) {
         const auto names = device->connectionParameters()["networkInterfaceOptions"].toStringList();
         const int index = names.indexOf(app.arguments()[liveIndex + 1]);
         if (index < 0) { qCritical() << "Interface not found" << names; return 2; }
-        auto *source = qobject_cast<PcapHandle *>(device->logSourceObject());
+        auto *source = device;
         QObject::connect(source, &PcapHandle::logMessage, &app, [](const QString &text) { qInfo().noquote() << text; });
         int samples = 0;
         QObject::connect(device, &Rayshining::LaserUdpDevice::telemetryReady, &app,
@@ -217,7 +217,7 @@ LaserModule {
         require(!containsWidth, "ordinary query groups exclude widths; connection has its separate one-shot width query");
     }
     int logs = 0;
-    QObject::connect(qobject_cast<Rayshining::LaserHandle *>(device->logSourceObject()), &Rayshining::LaserHandle::logMessage,
+    QObject::connect(device, &Rayshining::LaserHandle::logMessage,
         &app, [&](const QString &) { ++logs; });
     using namespace Rayshining;
     Q_EMIT device->replyReady({}, Reply{Module::Seed, Command::ReadReply, 0, {{Register::Frequency, quint32(12)}, {Register::Emission, EmissionState::On}}});

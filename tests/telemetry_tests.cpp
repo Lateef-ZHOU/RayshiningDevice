@@ -54,7 +54,7 @@ int main(int argc, char **argv)
         if (reply.command == Command::StopReply && reply.widthIndex == 4) ++marker;
         else states.push_back(reply);
     });
-    QObject::connect(qobject_cast<LaserHandle *>(device.logSourceObject()), &LaserHandle::logMessage,
+    QObject::connect(&device, &LaserHandle::logMessage,
                      &app, [&](const QString &text) { if (text.contains(QStringLiteral("未定义寄存器"))) ++errors; });
     const auto open = [&] {
         require(device.open({"controlled", {}}) && until([&] { return device.isOpen(); }), "open test transport");

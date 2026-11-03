@@ -51,7 +51,7 @@ struct Receiver {
         });
         QObject::connect(&device, &LaserDevice::telemetryReady, &context,
                          [this](RxTime, Module, const QVariantMap &values) { telemetry.push_back(values); });
-        QObject::connect(qobject_cast<LaserHandle *>(device.logSourceObject()), &LaserHandle::logMessage,
+        QObject::connect(&device, &LaserHandle::logMessage,
                          &context, [this](const QString &text) { logs.push_back(text); });
         require(device.open({"controlled", {}}) && until([this] {
             return device.isOpen() && logs.contains(QStringLiteral("设备连接成功"));

@@ -100,7 +100,6 @@ public:
     }
     [[nodiscard]] QString displayName() const final { return QStringLiteral("镭晟激光器"); }
     [[nodiscard]] bool isOpen() const noexcept final { return HandleT::isOpen(); }
-    [[nodiscard]] QObject *logSourceObject() noexcept final { return this; }
     void close() { HandleT::stop(); }
 
     bool readRegisters(Module module, int width, const QList<Register> &addresses)
@@ -344,7 +343,6 @@ class LaserDevice final
     Q_OBJECT
     Q_PROPERTY(QString displayName READ displayName CONSTANT)
     Q_PROPERTY(QString subtitle READ subtitle CONSTANT)
-    Q_PROPERTY(QObject *logSource READ logSourceObject CONSTANT)
     Q_PROPERTY(bool isOpen READ isOpen)
     Q_PROPERTY(bool isLocked READ isLocked)
     Q_PROPERTY(QString holder READ holder)

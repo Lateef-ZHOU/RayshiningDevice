@@ -39,7 +39,7 @@ int main(int argc, char **argv)
     const auto good = QByteArray::fromHex("57484c530000b7000000af2755");
     {
         LaserDevice device(nullptr);
-        const auto *logs = qobject_cast<LaserHandle *>(device.logSourceObject());
+        const auto *logs = &device;
         require(logs != nullptr, "log source is existing Handle");
         QObject::connect(logs, &LaserHandle::logMessage, &app, [&](const QString &text) {
             mainThread = mainThread && QThread::currentThread() == app.thread();
@@ -99,7 +99,7 @@ int main(int argc, char **argv)
                          [&](RxTime, const Reply &reply) { received.push_back(reply); });
         require(device->open({"controlled", {}}) && until([&] { return device->isOpen(); }), "stress open");
         std::atomic<bool> reached{false};
-        const auto *logs = qobject_cast<LaserHandle *>(device->logSourceObject());
+        const auto *logs = device;
         QObject::connect(logs, &LaserHandle::logMessage, device.get(), [&](const QString &text) {
             if (text.contains(QStringLiteral("未定义"))) reached = true;
         }, Qt::DirectConnection);
