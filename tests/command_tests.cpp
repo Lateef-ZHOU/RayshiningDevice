@@ -4,7 +4,7 @@
 #include <QCoreApplication>
 #include <QThread>
 #include <QtEndian>
-#include <Rayshining/LaserDevice.h>
+#include <LaserDevice.h>
 #include "FakeSerialPort.h"
 namespace {
 int checks = 0;

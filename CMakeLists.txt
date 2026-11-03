@@ -19,7 +19,7 @@ if(NOT TARGET Lidar::HandleCore)
     set(HANDLECORE_WITH_PCAP ON CACHE BOOL "Enable UDP transport" FORCE)
     FetchContent_Declare(lidar_handle_core
         GIT_REPOSITORY https://github.com/Lateef-ZHOU/HandleCore.git
-        GIT_TAG 4a2bb97d8ed1b719336039fc9bd2db3d1f73f8e9)
+        GIT_TAG 5afbfc6b2ee5b9c8a4e1138e8c2ab7a2d02b0e56)
     FetchContent_MakeAvailable(lidar_handle_core)
 endif()
 if(NOT TARGET Lidar::Serial OR NOT TARGET Lidar::Pcap)
@@ -28,20 +28,20 @@ endif()
 if(NOT TARGET Lidar::DeviceCore)
     FetchContent_Declare(lidar_device_core
         GIT_REPOSITORY https://github.com/Lateef-ZHOU/DeviceCore.git
-        GIT_TAG 19faa99f7db47f25b568c7e1ed4e1c49c24e2fc9)
+        GIT_TAG c93282b8061b1bbee965b48dc0a375feca094fac)
     FetchContent_MakeAvailable(lidar_device_core)
 endif()
 if(NOT TARGET Lidar::UICore)
     FetchContent_Declare(lidar_uicore
         GIT_REPOSITORY https://github.com/Lateef-ZHOU/UICore.git
-        GIT_TAG 728aaa00e9358437db9d439d6f9cbfe405aee450)
+        GIT_TAG 17ec443437bf4f3b4f5ac4df8bde2ec6707e7e66)
     FetchContent_MakeAvailable(lidar_uicore)
 endif()
 if(NOT TARGET Lidar::ChartCore)
     FetchContent_Declare(lidar_chartcore
         # 固定已发布的八通道绘图版本。
         GIT_REPOSITORY https://github.com/Lateef-ZHOU/ChartCore.git
-        GIT_TAG fa8eb354ba7c216ec4827ea7dfd52d01494d3a19)
+        GIT_TAG c5cd5088569675e0508015820f642e32efff0e1c)
     FetchContent_MakeAvailable(lidar_chartcore)
 endif()
 set(import_paths)
@@ -59,11 +59,11 @@ qt_add_qml_module(RayshiningDevice STATIC URI Lidar.Rayshining VERSION 1.0
     CLASS_NAME LidarRayshiningPlugin RESOURCE_PREFIX /qt/qml
     OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/Lidar/Rayshining"
     DEPENDENCIES Lidar.UI Lidar.Charts IMPORT_PATH ${import_paths}
-    SOURCES include/Rayshining/LaserHandle.h include/Rayshining/LaserDevice.h include/Rayshining/LaserUdpDevice.h
+    SOURCES include/LaserHandle.h include/LaserDevice.h include/LaserUdpDevice.h
     QML_FILES ${views})
 add_library(Lidar::RayshiningDevice ALIAS RayshiningDevice)
 set_target_properties(RayshiningDevice PROPERTIES AUTOMOC ON)
-target_include_directories(RayshiningDevice PUBLIC include PRIVATE include/Rayshining)
+target_include_directories(RayshiningDevice PUBLIC include)
 target_compile_features(RayshiningDevice PUBLIC cxx_std_20)
 target_compile_definitions(RayshiningDevice PUBLIC QT_NO_KEYWORDS)
 target_link_libraries(RayshiningDevice PUBLIC Lidar::Serial Lidar::Pcap Lidar::DeviceCore Boost::circular_buffer Lidar::ChartCore)

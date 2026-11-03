@@ -18,7 +18,7 @@
 #include <QtEndian>
 #include <QtQml/qqmlregistration.h>
 #include <QtQml/qqml.h>
-#include <Device/Base/DeviceBase.h>
+#include <DeviceBase.h>
 #include "LaserHandle.h"
 
 namespace Rayshining {

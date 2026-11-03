@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <boost/circular_buffer.hpp>
 #include <HandleBase.h>
-#include "Protocol.h"
+#include "LaserProtocol.h"
 
 namespace Rayshining {
 // 每个 SerialConn 独持；仅收包线程使用。RxTime 为补齐整帧的读取块时刻。

@@ -7,7 +7,7 @@
 #include <vector>
 #include <QCoreApplication>
 #include <QThread>
-#include <Rayshining/LaserDevice.h>
+#include <LaserDevice.h>
 #include "FakeSerialPort.h"
 
 namespace {

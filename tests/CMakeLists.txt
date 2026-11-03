@@ -7,7 +7,7 @@ else()
 endif()
 add_test(NAME protocol COMMAND protocol-tests)
 add_executable(serial-delivery-tests serial_delivery_tests.cpp
-    "${CMAKE_CURRENT_SOURCE_DIR}/../include/Rayshining/LaserHandle.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../include/LaserHandle.h"
     "${lidar_handle_core_SOURCE_DIR}/tests/serial/FakeSerialPort.cpp")
 set_target_properties(serial-delivery-tests PROPERTIES AUTOMOC ON)
 target_include_directories(serial-delivery-tests PRIVATE
@@ -41,8 +41,8 @@ add_executable(telemetry-tests telemetry_tests.cpp)
 add_executable(command-tests command_tests.cpp)
 foreach(test reply-tests device-tests telemetry-tests command-tests)
     target_sources(${test} PRIVATE
-        "${CMAKE_CURRENT_SOURCE_DIR}/../include/Rayshining/LaserHandle.h"
-        "${CMAKE_CURRENT_SOURCE_DIR}/../include/Rayshining/LaserDevice.h"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../include/LaserHandle.h"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../include/LaserDevice.h"
         "${lidar_handle_core_SOURCE_DIR}/tests/serial/FakeSerialPort.cpp")
     set_target_properties(${test} PROPERTIES AUTOMOC ON)
     target_include_directories(${test} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../include"
@@ -78,8 +78,8 @@ set_tests_properties(qml PROPERTIES TIMEOUT 30
 if(WIN32)
     set_property(TEST qml APPEND PROPERTY ENVIRONMENT "QT_QPA_FONTDIR=$ENV{WINDIR}/Fonts")
 endif()
-foreach(header Protocol Framer LaserHandle LaserDevice LaserUdpDevice)
-    file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/header_${header}.cpp" "#include <Rayshining/${header}.h>\n")
+foreach(header LaserProtocol Framer LaserHandle LaserDevice LaserUdpDevice)
+    file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/header_${header}.cpp" "#include <${header}.h>\n")
     add_library(header-${header} OBJECT "${CMAKE_CURRENT_BINARY_DIR}/header_${header}.cpp")
     target_link_libraries(header-${header} PRIVATE Lidar::RayshiningDevice)
 endforeach()

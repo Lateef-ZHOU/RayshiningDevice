@@ -1,4 +1,4 @@
-#include <Rayshining/LaserUdpDevice.h>
+#include <LaserUdpDevice.h>
 #include <cstdlib>
 #include <iostream>
 #include <memory>
@@ -13,8 +13,8 @@
 #include <QTimer>
 #include <QDebug>
 #include <QtQml/QQmlExtensionPlugin>
-#include <Rayshining/LaserDevice.h>
-#include <UI/Chart/LaserTelemetryItem.h>
+#include <LaserDevice.h>
+#include <LaserTelemetryItem.h>
 #include "FakeSerialPort.h"
 Q_IMPORT_QML_PLUGIN(LidarUIPlugin)
 Q_IMPORT_QML_PLUGIN(LidarChartsPlugin)

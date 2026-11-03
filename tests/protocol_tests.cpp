@@ -3,7 +3,7 @@
 #include <iostream>
 #include <vector>
 #include <QCoreApplication>
-#include <Rayshining/LaserHandle.h>
+#include <LaserHandle.h>
 
 namespace {
 int checks = 0;

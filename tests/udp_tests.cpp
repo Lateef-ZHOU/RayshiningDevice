@@ -1,4 +1,4 @@
-#include <Rayshining/LaserUdpDevice.h>
+#include <LaserUdpDevice.h>
 #include "FakePcap.h"
 #include <QCoreApplication>
 #include <QElapsedTimer>
@@ -24,8 +24,8 @@ int main(int argc, char **argv) {
     auto *handle = qobject_cast<PcapHandle *>(device.logSourceObject());
     require(handle != nullptr, "UDP backend directly owns PcapHandle");
     const auto options = device.connectionParameters();
-    require(options["hostIPv4"] == "192.168.100.200" && options["deviceIPv4"] == "192.168.100.100"
-        && options["hostPort"].toInt() == 55100 && options["devicePort"].toInt() == 55100, "fixed reversed bridge endpoints");
+    require(!options.contains("hostIPv4") && !options.contains("deviceIPv4")
+        && !options.contains("hostPort") && !options.contains("devicePort"), "fixed endpoints are not UI form parameters");
     require(!device.open(-1) && FakePcap::opens() == 0, "bad selection does not open");
     require(!options["networkInterfaceOptions"].toStringList().isEmpty(), "test machine provides an Ethernet interface for enumeration");
     bool mainThread = true;
@@ -54,6 +54,9 @@ int main(int argc, char **argv) {
     FakePcap::inject(session, ARPReply(ARPRequest(request), peer));
     until([&] { return FakePcap::sent().size() >= 2; });
     const UDPDatagram sent(FakePcap::sent().back().bytes);
+    require(sent == UDPDatagram(peer, ARPRequest(request).senderMAC(),
+        IPv4(QByteArray::fromHex("c0a864c8")), IPv4(QByteArray::fromHex("c0a86464")),
+        55100, 55100, sent.bodyView()), "wire frame uses the fixed reversed bridge endpoints");
     require(sent.bodyView() == makeBody(0, 0x31, 0, QByteArray::fromHex("8000000083000000850000008f000000")),
         "one UDP read contains old and new addresses, body only without WHLS wrapper");
     const auto incoming = [&](const QByteArray &body) {
