@@ -33,10 +33,7 @@ public:
     {
         QStringList names, tips;
         for (const auto &entry : interfaces()) { names << entry.friendlyName; tips << entry.description; }
-        const auto p = parameters({});
-        return {{"networkInterfaceOptions", names}, {"networkInterfaceTips", tips},
-            {"hostIPv4", p.hostIPv4.toString()}, {"hostPort", p.hostPort},
-            {"deviceIPv4", p.deviceIPv4.toString()}, {"devicePort", p.devicePort}};
+        return {{"networkInterfaceOptions", names}, {"networkInterfaceTips", tips}};
     }
     Q_INVOKABLE bool open(int interfaceIndex)
     {

@@ -1,5 +1,9 @@
 2026-10-30 发布更新：ChartCore fa8eb35 已推送，构建入口恢复 GitHub HTTPS 固定完整提交；下方本地联调记录为历史阶段。
 
+2026-11-03 用户定：网口连接区仅保留网卡选择和连接/断开，删除 IP、端口等固定参数展示及对应 QML 参数字段；实际连接配置、校验、ARP 和收发关闭行为保持。
+
+Windows 验证：通过主程序本地源码覆盖增量构建，五个网口官邸 qmllint 目标成功；仍有 QObject 属性类型的既有静态提示。八秒离屏冒烟通过，仅既有字体提示；未进行硬件操作或 Linux 验证。证据：LiDAR_DataACQ/build/build-network-ui.log、smoke-network-ui.json。
+
 2026-11-03 上传接口：LaserDeviceT 直接继承传输 Handle 与纯 C++ DeviceBase，以 onData 虚函数执行原解析；串口/UDP 末端提供 Qt 属性、锁信号并在析构首句预清理。删除上传闭包与 Handle 成员，连接查询、关光和解析逻辑保持。
 
 # 镭晟激光器官邸（RayshiningDevice）

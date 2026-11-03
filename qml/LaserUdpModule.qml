@@ -26,14 +26,6 @@ LaserPage {
                 onCommitted: i => value = i
             }
         }
-        Label {
-            Layout.fillWidth: true
-            wrapMode: Text.Wrap
-            opacity: 0.6
-            text: qsTr("%1:%2 ↔ %3:%4")
-                .arg(internals.parameters.deviceIPv4).arg(internals.parameters.devicePort)
-                .arg(internals.parameters.hostIPv4).arg(internals.parameters.hostPort)
-        }
         RowLayout {
             Layout.fillWidth: true
             uniformCellSizes: true

@@ -245,3 +245,9 @@ Linux 证据：~/.cache/rayshining-20261027 下 configure.log、build.log、buil
 ## 2026-11-03 回调类型声明整理
 
 串口 Framer 与测试直接使用 std::function，不再引用 DataCallback；协议解析、轮询和状态逻辑不变。README 同步现有 onData 虚接口与同步交付契约。Windows/MSVC/Qt 6.11.2 Release 和公开头编译通过，CTest 9/9 通过（20.25 秒）；首次执行遗漏运行库 PATH，报 0xc0000135，补齐 Qt/libserialport/Npcap 路径后全部重跑通过。证据 build-virtual-upload/build-callback-alias.log 与 Testing/Temporary/LastTest.log。Linux 桥接器使用本仓生产协议头，构建与 CTest 4/4 通过；本轮未单独重跑 Linux QML，也未连接实物。
+
+## 2026-11-03 网口连接显示精简
+
+2026-11-03 用户定：网口连接区仅保留网卡选择和连接/断开，删除 IP、端口等固定参数展示及对应 QML 参数字段；实际连接配置、校验、ARP 和收发关闭行为保持。
+
+Windows 验证：通过主程序本地源码覆盖增量构建，五个网口官邸 qmllint 目标成功；仍有 QObject 属性类型的既有静态提示。八秒离屏冒烟通过，仅既有字体提示；未进行硬件操作或 Linux 验证。证据：LiDAR_DataACQ/build/build-network-ui.log、smoke-network-ui.json。
