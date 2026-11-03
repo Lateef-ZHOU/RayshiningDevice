@@ -105,7 +105,6 @@ public:
         return owner ? QVariant(*owner) : QVariant();
     }
     [[nodiscard]] bool isOpen() const noexcept final { return HandleT::isOpen(); }
-    void close() { HandleT::stop(); }
 
     bool readRegisters(Module module, int width, const QList<Register> &addresses)
     {
@@ -194,7 +193,7 @@ private:
 protected:
     void PreDestruction() noexcept override
     {
-        HandleT::stop(); // 等待回调退出后，才撤借用和清理本对象。
+        HandleT::close(); // 等待回调退出后，才撤借用和清理本对象。
         DeviceBase::PreDestruction();
     }
 private:
@@ -361,7 +360,7 @@ public:
     ~LaserDevice() override { PreDestruction(); }
 
     // 表单只交端口；协议规格固定，不缓存串口设置或 UI 选择。
-    [[nodiscard]] bool open(const SerialPortInfo &port) { return LaserHandle::start(LaserHandle::parameters(port)); }
+    [[nodiscard]] bool open(const SerialPortInfo &port) { return LaserHandle::open(LaserHandle::parameters(port)); }
     Q_INVOKABLE bool open(const QString &portName)
     {
         if (portName.trimmed().isEmpty()) {

@@ -19,7 +19,7 @@ if(NOT TARGET Lidar::HandleCore)
     set(HANDLECORE_WITH_PCAP ON CACHE BOOL "Enable UDP transport" FORCE)
     FetchContent_Declare(lidar_handle_core
         GIT_REPOSITORY https://github.com/Lateef-ZHOU/HandleCore.git
-        GIT_TAG 5afbfc6b2ee5b9c8a4e1138e8c2ab7a2d02b0e56)
+        GIT_TAG 9d74a19b91494354b3709bed04603a61ed3408bd)
     FetchContent_MakeAvailable(lidar_handle_core)
 endif()
 if(NOT TARGET Lidar::Serial OR NOT TARGET Lidar::Pcap)
@@ -28,7 +28,7 @@ endif()
 if(NOT TARGET Lidar::DeviceCore)
     FetchContent_Declare(lidar_device_core
         GIT_REPOSITORY https://github.com/Lateef-ZHOU/DeviceCore.git
-        GIT_TAG 2b59a967a847c9b13844ec8ac5d298ad858b95b5)
+        GIT_TAG c1b2b7f88f0c56b8c2e744c122c2dcfc4a91f5c0)
     FetchContent_MakeAvailable(lidar_device_core)
 endif()
 if(NOT TARGET Lidar::UICore)

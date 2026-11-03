@@ -48,7 +48,7 @@ int main(int argc, char **argv)
             received.push_back(body);
         });
         const auto count = [&] { const std::lock_guard lock(gate); return received.size(); };
-        require(handle.start(Rayshining::LaserHandle::parameters({"controlled", {}})), "serial open submitted");
+        require(handle.open(Rayshining::LaserHandle::parameters({"controlled", {}})), "serial open submitted");
         require(until([&] { return handle.isOpen(); }), "serial open completed");
         auto bad = ack;
         bad[bad.size() - 3] = static_cast<char>(bad[bad.size() - 3] ^ 1);
@@ -65,7 +65,7 @@ int main(int argc, char **argv)
         require(handle.send(QByteArray::fromHex("000036000000"))
                 && FakeSerialPort::writes().back() == QByteArray::fromHex("57484c53000036000000930f55"),
                 "empty command data framed with expected wire CRC");
-        handle.stop();
+        handle.close();
         require(worker && typedTime, "callback thread and RxTime preserved");
     }
     require(received == std::vector<QByteArray>{QByteArray::fromHex("0000b7000000"),

@@ -142,3 +142,10 @@ V1.3.1 协议表未列出这两个测量项；用户提供的原厂 V3.0.48 上�
 设备名称/副标题由构造传入 DeviceBase 的公开 const 成员，Qt 通过 MEMBER CONSTANT 直接暴露；占用查询只保留 holder，Qt 用无效 QVariant 表示空闲、字符串表示占用，删除 isLocked 属性。既有连接、重连、收发和取消逻辑保持。
 
 本轮仅本地整理；集成验证记录见主程序 docs/maintenance/validation.md，不推送。
+
+
+## 2026-11-04：Handle 连接入口统一（用户定）
+
+串口和 UDP 连接适配改用 Handle.open，删除 LaserDeviceT.close 薄转发，直接继承 Handle.close；Qt 必需入口及 isOpen 契约保持，查询、关光和关闭次序不变。
+
+Windows 主程序增量构建和八秒离屏冒烟通过；本仓测试调用已同步，本轮未单独重跑本仓全套测试，不含硬件或 Linux/ARM 验证。 依赖固定到相邻本地提交，尚未推送，联调使用源码覆盖。

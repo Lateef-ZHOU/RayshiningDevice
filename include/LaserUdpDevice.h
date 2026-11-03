@@ -38,7 +38,7 @@ public:
             Q_EMIT logMessage(QStringLiteral("未选择有效网卡，连接请求未提交"));
             return false;
         }
-        return PcapHandle::start(parameters(interfaces()[interfaceIndex]));
+        return PcapHandle::open(parameters(interfaces()[interfaceIndex]));
     }
     Q_INVOKABLE void close() { Base::close(); }
     Q_INVOKABLE bool readRegisters(Module module, int width, const QList<Register> &addresses)
