@@ -85,26 +85,23 @@ Q_DECLARE_METATYPE(Rayshining::Module)
 namespace Rayshining {
 // 两种传输共用同一套型号业务；只在末端选择 Handle，不新增设备族或第二份解析。
 template <HandleLike HandleT>
-class LaserDeviceT : public HandleT, public DeviceBase
+class LaserDeviceT : public Device<HandleT>
 {
 public:
     LaserDeviceT(QString detail, QObject *parent)
-        : HandleT(), DeviceBase(QStringLiteral("镭晟激光器"), std::move(detail))
+        : Device<HandleT>(QStringLiteral("镭晟激光器"), std::move(detail), parent)
     {
-        this->setParent(parent);
         QObject::connect(this, &HandleT::connectionChanged, this, [this](HandleCore::ResourcePhase phase) {
-            if (phase == HandleCore::ResourcePhase::Acquired && isOpen())
+            if (phase == HandleCore::ResourcePhase::Acquired && this->isOpen())
                 telemetry_ = {};
-            else if (phase == HandleCore::ResourcePhase::AboutToRelease)
-                this->dropLock();
         });
     }
+    // Qt 属性边界：无效 QVariant 表示未占用，QString（含空串）表示占用。
     [[nodiscard]] QVariant qmlHolder() const
     {
-        const auto owner = holder();
+        const auto owner = this->holder();
         return owner ? QVariant(*owner) : QVariant();
     }
-    [[nodiscard]] bool isOpen() const noexcept final { return HandleT::isOpen(); }
 
     bool readRegisters(Module module, int width, const QList<Register> &addresses)
     {
@@ -190,13 +187,6 @@ private:
         }
         return std::nullopt;
     }
-protected:
-    void PreDestruction() noexcept override
-    {
-        HandleT::close(); // 等待回调退出后，才撤借用和清理本对象。
-        DeviceBase::PreDestruction();
-    }
-private:
     void onData(const QByteArray &body, RxTime at) final
     {
         // 串口 Handle 或板端桥接器已处理外层帧；两路都解释同一主体。

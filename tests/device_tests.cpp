@@ -99,8 +99,7 @@ int main(int argc, char **argv)
                          [&](RxTime, const Reply &reply) { received.push_back(reply); });
         require(device->open({"controlled", {}}) && until([&] { return device->isOpen(); }), "stress open");
         std::atomic<bool> reached{false};
-        const auto *logs = device;
-        QObject::connect(logs, &LaserHandle::logMessage, device.get(), [&](const QString &text) {
+        QObject::connect(device.get(), &LaserHandle::logMessage, device.get(), [&](const QString &text) {
             if (text.contains(QStringLiteral("未定义"))) reached = true;
         }, Qt::DirectConnection);
         FakeSerialPort::enqueue(good + encode(makeBody(2, 0xb1, 0, {})));

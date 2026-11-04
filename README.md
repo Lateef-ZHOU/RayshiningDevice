@@ -149,3 +149,5 @@ V1.3.1 协议表未列出这两个测量项；用户提供的原厂 V3.0.48 上�
 串口和 UDP 连接适配改用 Handle.open，删除 LaserDeviceT.close 薄转发，直接继承 Handle.close；Qt 必需入口及 isOpen 契约保持，查询、关光和关闭次序不变。
 
 Windows 主程序增量构建和八秒离屏冒烟通过；本仓测试调用已同步，本轮未单独重跑本仓全套测试，不含硬件或 Linux/ARM 验证。 依赖固定到相邻本地提交，尚未推送，联调使用源码覆盖。
+
+串口与 UDP 两个末端共用 LaserDeviceT<HandleT>，业务模板直接继承无需 Collector 的 Device<HandleT>。连接、锁与同步预析构归 Device，激光器自身解析回报、维护遥测并发出信号。
