@@ -123,7 +123,7 @@ LaserStatus {
         require(device && device->parent() == page.get() && !device->isOpen(), "UDP page owns exact offline backend");
         require(qmlAttachedPropertiesObject<Rayshining::LaserUdpDevice>(page.get()) == device, "unique UDP backend");
         require(page->findChild<QObject *>("networkInterfaceSelector") != nullptr, "UDP connection uses interface choice");
-        require(QQmlListReference(page.get(), "sections").count() == 3, "UDP reuses control and status sections");
+        require(QQmlListReference(page.get(), "sections").count() == 2, "UDP reuses unified laser status section");
         require(!device->open(-1), "invalid interface rejected without starting Handle");
         require(page->property("widthOptions").value<QJSValue>().toVariant().toList().isEmpty(), "UDP widths initially empty");
     }
@@ -150,7 +150,7 @@ LaserModule {
     for (auto *item : page->findChildren<QQuickItem *>())
         if (item->metaObject()->indexOfSignal("clicked()") >= 0) buttons.append(item);
     for (const auto &pair : {QStringList{QStringLiteral("连接"), QStringLiteral("断开")},
-                           QStringList{QStringLiteral("设置参数并出光"), QStringLiteral("关光")},
+                           QStringList{QStringLiteral("出光"), QStringLiteral("关光")},
                            QStringList{QStringLiteral("切换为内控"), QStringLiteral("切换为外控")}}) {
         QQuickItem *left = nullptr, *right = nullptr;
         for (auto *button : buttons) {
@@ -179,7 +179,8 @@ LaserModule {
     }
     QMetaObject::invokeMethod(powerInput, "restore");
     const QQmlListReference sections(page.get(), "sections");
-    require(sections.count() == 3, "only connection, readback and control sections remain");
+    require(sections.count() == 2 && sections.at(1)->property("title") == QStringLiteral("激光状态"),
+            "connection and unified laser status sections only");
     auto *timer = page->findChild<QObject *>(QStringLiteral("statusTimer"));
     require(timer && timer->property("interval").toInt() == 500 && timer->property("repeat").toBool()
             && !timer->property("running").toBool(), "fixed half-second polling is stopped while offline");
@@ -187,7 +188,7 @@ LaserModule {
     for (auto *item : page->findChildren<QObject *>()) {
         if (item->metaObject()->indexOfSignal("clicked()") < 0) continue;
         const auto text = item->property("text").toString();
-        if (QStringList{QStringLiteral("更新"), QStringLiteral("设置参数并出光"), QStringLiteral("关光"),
+        if (QStringList{QStringLiteral("更新"), QStringLiteral("出光"), QStringLiteral("关光"),
                         QStringLiteral("切换为内控"), QStringLiteral("切换为外控")}.contains(text)) {
             ++controlButtons;
             require(item->property("enabled").toBool(), "commands remain enabled without a connection or width options");

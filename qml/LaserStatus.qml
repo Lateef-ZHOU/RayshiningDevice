@@ -23,16 +23,4 @@ Section {
             text: root.identity([LaserProtocol.Serial1, LaserProtocol.Serial2, LaserProtocol.Serial3, LaserProtocol.Serial4])
         }
     }
-    ReadoutRow {
-        Layout.topMargin: 20
-        Readout {
-            caption: qsTr("激光输出")
-            objectName: "emissionReadback"
-            text: root.readings[LaserProtocol.Emission] === undefined ? "—" : root.readings[LaserProtocol.Emission] ? qsTr("出光") : qsTr("关光")
-        }
-        Readout {
-            caption: qsTr("模式")
-            text: root.readings[LaserProtocol.ControlMode] === undefined ? "—" : (root.readings[LaserProtocol.ControlMode] & 0x400) ? qsTr("内控") : qsTr("外控")
-        }
-    }
 }

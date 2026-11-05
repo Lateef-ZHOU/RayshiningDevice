@@ -144,13 +144,11 @@ ModulePage {
             configuration: ({temperature: {minimum: 0, maximum: 80}, current: {minimum: 0, maximum: 5}, voltage: {minimum: 0, maximum: 30}, windowSeconds: 120, capacity: 7200})
         }
     }]
-    sections: [connection, seedStatus, control]
+    sections: [connection, seedStatus]
     readonly property Section seedStatus: LaserStatus {
         title: qsTr("激光状态")
         readings: root.seedReadings
-    }
-    readonly property Section control: Section {
-        title: qsTr("激光控制")
+        MenuSeparator { Layout.fillWidth: true }
         ReadoutRow {
             ReadoutField {
                 caption: qsTr("脉宽（ns）")
@@ -201,20 +199,34 @@ ModulePage {
                 }
             }
         }
-        DoubleButtonRow {
-            firstAction: Action { text: qsTr("设置参数并出光"); onTriggered: root.sendEmission() }
-            secondAction: Action {
-                text: qsTr("关光")
-                onTriggered: {
-                    const width = root.widthOptions[widthSelector.currentIndex]
-                    if (root.backend.stopEmission(LaserProtocol.Seed, width ? width.code : 0))
-                        root.logMessage(qsTr("关光命令已发送"))
+        MenuSeparator { Layout.fillWidth: true }
+        ReadoutRow {
+            ReadoutField {
+                caption: qsTr("激光输出")
+                objectName: "emissionReadback"
+                text: root.seedReadings[LaserProtocol.Emission] === undefined ? "—" : root.seedReadings[LaserProtocol.Emission] ? qsTr("出光") : qsTr("关光")
+                DoubleButtonRow {
+                    firstToolTip: qsTr("使用上方脉宽、频率和功率设置并出光")
+                    firstAction: Action { text: qsTr("出光"); onTriggered: root.sendEmission() }
+                    secondAction: Action {
+                        text: qsTr("关光")
+                        onTriggered: {
+                            const width = root.widthOptions[widthSelector.currentIndex]
+                            if (root.backend.stopEmission(LaserProtocol.Seed, width ? width.code : 0))
+                                root.logMessage(qsTr("关光命令已发送"))
+                        }
+                    }
                 }
             }
-        }
-        DoubleButtonRow {
-            firstAction: Action { text: qsTr("切换为内控"); onTriggered: { if (root.backend.setControlMode(true)) root.logMessage(qsTr("切换内控命令已发送")) } }
-            secondAction: Action { text: qsTr("切换为外控"); onTriggered: { if (root.backend.setControlMode(false)) root.logMessage(qsTr("切换外控命令已发送")) } }
+            ReadoutField {
+                caption: qsTr("模式")
+                objectName: "modeReadback"
+                text: root.seedReadings[LaserProtocol.ControlMode] === undefined ? "—" : (root.seedReadings[LaserProtocol.ControlMode] & 0x400) ? qsTr("内控") : qsTr("外控")
+                DoubleButtonRow {
+                    firstAction: Action { text: qsTr("切换为内控"); onTriggered: { if (root.backend.setControlMode(true)) root.logMessage(qsTr("切换内控命令已发送")) } }
+                    secondAction: Action { text: qsTr("切换为外控"); onTriggered: { if (root.backend.setControlMode(false)) root.logMessage(qsTr("切换外控命令已发送")) } }
+                }
+            }
         }
     }
 }
