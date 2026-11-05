@@ -9,66 +9,54 @@ Section {
     required property var readings
     property var widthOptions: []
     function value(address, suffix) {
-        const v = readings[address]
-        return v === undefined ? "—" : String(v) + suffix
+        const v = readings[address];
+        return v === undefined ? "—" : String(v) + suffix;
     }
     function identity(addresses) {
-        if (addresses.every(address => readings[address] === undefined)) return "—"
-        return addresses.map(address => readings[address] === undefined ? "…" : readings[address]).join("").replace(/\0/g, "")
+        if (addresses.every(address => readings[address] === undefined))
+            return "—";
+        return addresses.map(address => readings[address] === undefined ? "…" : readings[address]).join("").replace(/\0/g, "");
     }
-    // 与云台读数统一：浅色左对齐标题，下方正常字重的等宽数值。
-    component Readout: Label {
-        color: palette.placeholderText
-        Layout.fillWidth: true
-        Layout.preferredWidth: 64
-        elide: Text.ElideRight
-    }
-    component ReadoutValue: Label {
-        font.family: "Consolas"
-        font.pointSize: 13
-        Layout.fillWidth: true
-        Layout.preferredWidth: 64
-    }
-    GridLayout {
-        columns: 5
-        uniformCellWidths: true
-        columnSpacing: 10
-        rowSpacing: 2
-        Layout.fillWidth: true
-        Readout { text: qsTr("激光输出") }
-        Readout { text: qsTr("模式") }
-        Readout { text: qsTr("脉宽") }
-        Readout { text: qsTr("功率") }
-        Readout { text: qsTr("频率") }
-        ReadoutValue {
+    ReadoutRow {
+        Readout {
+            caption: qsTr("激光输出")
             objectName: "emissionReadback"
             text: root.readings[LaserProtocol.Emission] === undefined ? "—" : root.readings[LaserProtocol.Emission] ? qsTr("出光") : qsTr("关光")
         }
-        ReadoutValue {
+        Readout {
+            caption: qsTr("模式")
             text: root.readings[LaserProtocol.ControlMode] === undefined ? "—" : (root.readings[LaserProtocol.ControlMode] & 0x400) ? qsTr("内控") : qsTr("外控")
         }
-        ReadoutValue {
+        Readout {
+            caption: qsTr("脉宽")
             objectName: "widthReadback"
             text: {
-                const option = root.widthOptions.find(item => item.code === root.readings[LaserProtocol.WidthIndex])
-                return option ? option.value + " ns" : "—"
+                const option = root.widthOptions.find(item => item.code === root.readings[LaserProtocol.WidthIndex]);
+                return option ? option.value + " ns" : "—";
             }
         }
-        // 实机功率读口为 0..255；写口仍为百分比，只在显示边界换算。
-        ReadoutValue {
+        Readout {
+            caption: qsTr("功率")
             objectName: "powerReadback"
-            text: root.readings[LaserProtocol.Power] === undefined ? "—"
-                : (root.readings[LaserProtocol.Power] * 100 / 255).toFixed(1) + " %"
+            text: root.readings[LaserProtocol.Power] === undefined ? "—" : (root.readings[LaserProtocol.Power] * 100 / 255).toFixed(1) + " %"
         }
-        ReadoutValue { objectName: "frequencyReadback"; text: root.value(LaserProtocol.Frequency, " kHz") }
+        Readout {
+            caption: qsTr("频率")
+            objectName: "frequencyReadback"
+            text: root.value(LaserProtocol.Frequency, " kHz")
+        }
     }
     GridLayout {
         columns: 2
-        columnSpacing: 12
-        rowSpacing: 6
+        columnSpacing: FormStyle.columnSpacing
+        rowSpacing: FormStyle.rowSpacing
         Layout.fillWidth: true
         Layout.topMargin: 20
-        Label { text: qsTr("型号"); font.pixelSize: 12; opacity: 0.7 }
+        Label {
+            text: qsTr("型号")
+            font.pixelSize: 12
+            opacity: 0.7
+        }
         Label {
             Layout.fillWidth: true
             Layout.preferredWidth: 1
@@ -77,7 +65,11 @@ Section {
             font.pixelSize: 12
             opacity: 0.7
         }
-        Label { text: "SN"; font.pixelSize: 12; opacity: 0.7 }
+        Label {
+            text: "SN"
+            font.pixelSize: 12
+            opacity: 0.7
+        }
         Label {
             objectName: "serialReadback"
             Layout.fillWidth: true
