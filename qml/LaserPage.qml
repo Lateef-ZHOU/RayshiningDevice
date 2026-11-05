@@ -148,46 +148,57 @@ ModulePage {
     readonly property Section seedStatus: LaserStatus {
         title: qsTr("激光状态")
         readings: root.seedReadings
-        widthOptions: root.widthOptions
     }
     readonly property Section control: Section {
         title: qsTr("激光控制")
-        FieldRow {
-            label: qsTr("脉宽（ns）")
-            ChoiceBox {
-                id: widthSelector
-                objectName: "pulseWidthSelector"
-                Layout.fillWidth: true
-                model: root.widthOptions.map(option => String(option.value))
-                editable: false
+        ReadoutRow {
+            ReadoutField {
+                caption: qsTr("脉宽（ns）")
+                objectName: "widthReadback"
+                text: {
+                    const option = root.widthOptions.find(item => item.code === root.seedReadings[LaserProtocol.WidthIndex]);
+                    return option ? option.value + " ns" : "—";
+                }
+                ChoiceBox {
+                    id: widthSelector
+                    objectName: "pulseWidthSelector"
+                    Layout.fillWidth: true
+                    model: root.widthOptions.map(option => String(option.value))
+                    editable: false
+                }
+                Button {
+                    objectName: "refreshPulseWidths"
+                    Layout.fillWidth: true
+                    text: qsTr("更新")
+                    onClicked: root.query(root.widthRegisters, true)
+                }
             }
-            Button {
-                objectName: "refreshPulseWidths"
-                text: qsTr("更新")
-                onClicked: root.query(root.widthRegisters, true)
+            ReadoutField {
+                caption: qsTr("频率（kHz）")
+                objectName: "frequencyReadback"
+                text: root.seedReadings[LaserProtocol.Frequency] === undefined ? "—" : root.seedReadings[LaserProtocol.Frequency] + " kHz"
+                ChoiceBox {
+                    id: frequencySelector
+                    objectName: "frequencySelector"
+                    Layout.fillWidth: true
+                    model: [5, 8, 10]
+                    currentIndex: 2
+                    editable: false
+                }
             }
-        }
-        FieldRow {
-            label: qsTr("频率（kHz）")
-            ChoiceBox {
-                id: frequencySelector
-                objectName: "frequencySelector"
-                Layout.fillWidth: true
-                model: [5, 8, 10]
-                currentIndex: 2
-                editable: false
-            }
-        }
-        FieldRow {
-            label: qsTr("功率（%）")
-            IntField {
-                id: powerInput
-                objectName: "powerInput"
-                Layout.fillWidth: true
-                minimum: 0
-                maximum: 100
-                value: 1
-                onCommitted: v => value = v
+            ReadoutField {
+                caption: qsTr("功率（%）")
+                objectName: "powerReadback"
+                text: root.seedReadings[LaserProtocol.Power] === undefined ? "—" : (root.seedReadings[LaserProtocol.Power] * 100 / 255).toFixed(1) + " %"
+                IntField {
+                    id: powerInput
+                    objectName: "powerInput"
+                    Layout.fillWidth: true
+                    minimum: 0
+                    maximum: 100
+                    value: 1
+                    onCommitted: v => value = v
+                }
             }
         }
         DoubleButtonRow {
