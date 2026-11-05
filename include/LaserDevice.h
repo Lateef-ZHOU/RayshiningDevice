@@ -89,7 +89,7 @@ class LaserDeviceT : public Device<HandleT>
 {
 public:
     LaserDeviceT(QString detail, QObject *parent)
-        : Device<HandleT>(QStringLiteral("镭晟激光器"), std::move(detail), parent)
+        : Device<HandleT>(QStringLiteral("激光·镭晟"), std::move(detail), parent)
     {
         QObject::connect(this, &HandleT::connectionChanged, this, [this](HandleCore::ResourcePhase phase) {
             if (phase == HandleCore::ResourcePhase::Acquired && this->isOpen())
@@ -345,7 +345,7 @@ class LaserDevice final
     using Base = LaserDeviceT<LaserHandle>;
 public:
     static LaserDevice *qmlAttachedProperties(QObject *owner) { return new LaserDevice(owner); }
-    explicit LaserDevice(QObject *parent) : Base(QStringLiteral("串口 · RS-1550-300-MINI"), parent)
+    explicit LaserDevice(QObject *parent) : Base(QStringLiteral("RS-1550-300-MINI"), parent)
     { static_assert(FinalDevice<LaserDevice, decltype(&LaserDevice::PreDestruction)>); }
     ~LaserDevice() override { PreDestruction(); }
 

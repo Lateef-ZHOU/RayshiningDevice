@@ -23,7 +23,7 @@ class LaserUdpDevice final
     using Base = LaserDeviceT<PcapHandle>;
 public:
     static LaserUdpDevice *qmlAttachedProperties(QObject *owner) { return new LaserUdpDevice(owner); }
-    explicit LaserUdpDevice(QObject *parent) : Base(QStringLiteral("网口 · UDP · RS-1550-300-MINI"), parent)
+    explicit LaserUdpDevice(QObject *parent) : Base(QStringLiteral("RS-1550-300-MINI"), parent)
     { static_assert(FinalDevice<LaserUdpDevice, decltype(&LaserUdpDevice::PreDestruction)>); }
     ~LaserUdpDevice() override { PreDestruction(); }
     [[nodiscard]] QVariantMap connectionParameters() const
