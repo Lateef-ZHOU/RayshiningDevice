@@ -46,38 +46,20 @@ Section {
             text: root.value(LaserProtocol.Frequency, " kHz")
         }
     }
-    GridLayout {
-        columns: 2
-        columnSpacing: FormStyle.columnSpacing
-        rowSpacing: FormStyle.rowSpacing
+    ColumnLayout {
         Layout.fillWidth: true
         Layout.topMargin: 20
-        Label {
-            text: qsTr("型号")
-            font.pixelSize: 12
-            opacity: 0.7
-        }
-        Label {
-            Layout.fillWidth: true
-            Layout.preferredWidth: 1
-            wrapMode: Text.Wrap
+        spacing: FormStyle.rowSpacing
+        InfoRow {
+            compact: true
+            caption: qsTr("型号")
             text: root.identity([LaserProtocol.Model1, LaserProtocol.Model2, LaserProtocol.Model3])
-            font.pixelSize: 12
-            opacity: 0.7
         }
-        Label {
-            text: "SN"
-            font.pixelSize: 12
-            opacity: 0.7
-        }
-        Label {
+        InfoRow {
             objectName: "serialReadback"
-            Layout.fillWidth: true
-            Layout.preferredWidth: 1
-            wrapMode: Text.Wrap
+            compact: true
+            caption: "SN"
             text: root.identity([LaserProtocol.Serial1, LaserProtocol.Serial2, LaserProtocol.Serial3, LaserProtocol.Serial4])
-            font.pixelSize: 12
-            opacity: 0.7
         }
     }
 }

@@ -99,8 +99,14 @@ LaserStatus {
                 if (label->objectName() == "frequencyReadback")
                     require(text == QStringLiteral("%1 kHz").arg(frequency), "UI shows returned kHz unchanged");
                 if (label->objectName() == "serialReadback") {
-                    require(text == QStringLiteral("15500300MN260011") && label->property("lineCount").toInt() == 1,
-                            "complete serial fits one line in the normal sidebar");
+                    require(text == QStringLiteral("15500300MN260011"), "serial info row keeps complete value");
+                    bool singleLine = false;
+                    for (auto *value : label->findChildren<QQuickItem *>()) {
+                        if (value->property("text").toString() == text)
+                            singleLine = value->property("lineCount").toInt() == 1
+                                && !value->property("truncated").toBool();
+                    }
+                    require(singleLine, "complete serial fits one line in the normal sidebar");
                     require(serialWidth == 0 || qFuzzyCompare(label->width(), serialWidth),
                             "serial width does not depend on frequency digit count");
                     serialWidth = label->width();

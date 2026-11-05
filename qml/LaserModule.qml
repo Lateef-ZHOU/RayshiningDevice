@@ -14,20 +14,27 @@ LaserPage {
         readonly property LaserDevice device: root.LaserDevice
         readonly property var ports: device.ports()
     }
-    connection: Section {
+    connection: ConnectionSection {
         title: qsTr("设备连接")
-        FieldRow {
-            label: qsTr("串口")
-            ChoiceField {
-                id: portSelector
-                Layout.fillWidth: true
-                model: internals.ports
-                onCommitted: i => value = i
+
+        label: qsTr("串口")
+        ChoiceField {
+            id: portSelector
+            Layout.fillWidth: true
+            model: internals.ports
+            onCommitted: i => value = i
+        }
+
+        firstAction: Action {
+            text: qsTr("连接")
+            onTriggered: {
+                if (internals.device.open(root.portName))
+                    root.logMessage(qsTr("连接请求已提交"));
             }
         }
-        DoubleButtonRow {
-            firstAction: Action { text: qsTr("连接"); onTriggered: { if (internals.device.open(root.portName)) root.logMessage(qsTr("连接请求已提交")) } }
-            secondAction: Action { text: qsTr("断开"); onTriggered: internals.device.close() }
+        secondAction: Action {
+            text: qsTr("断开")
+            onTriggered: internals.device.close()
         }
     }
 }
