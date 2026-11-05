@@ -148,7 +148,7 @@ ModulePage {
     readonly property Section seedStatus: LaserStatus {
         title: qsTr("激光状态")
         readings: root.seedReadings
-        MenuSeparator { Layout.fillWidth: true }
+        FormSeparator {}
         ReadoutRow {
             ReadoutField {
                 caption: qsTr("脉宽（ns）")
@@ -199,7 +199,7 @@ ModulePage {
                 }
             }
         }
-        MenuSeparator { Layout.fillWidth: true }
+        FormSeparator {}
         ReadoutRow {
             ReadoutField {
                 caption: qsTr("激光输出")
