@@ -25,12 +25,9 @@ LaserPage {
                 onCommitted: i => value = i
             }
         }
-        RowLayout {
-            Layout.fillWidth: true
-            uniformCellSizes: true
-            spacing: 8
-            Button { Layout.fillWidth: true; text: qsTr("连接"); onClicked: { if (internals.device.open(root.portName)) root.logMessage(qsTr("连接请求已提交")) } }
-            Button { Layout.fillWidth: true; text: qsTr("断开"); onClicked: internals.device.close() }
+        DoubleButtonRow {
+            firstAction: Action { text: qsTr("连接"); onTriggered: { if (internals.device.open(root.portName)) root.logMessage(qsTr("连接请求已提交")) } }
+            secondAction: Action { text: qsTr("断开"); onTriggered: internals.device.close() }
         }
     }
 }

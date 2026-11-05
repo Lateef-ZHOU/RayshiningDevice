@@ -190,27 +190,20 @@ ModulePage {
                 onCommitted: v => value = v
             }
         }
-        RowLayout {
-            Layout.fillWidth: true
-            uniformCellSizes: true
-            spacing: 8
-            Button { Layout.fillWidth: true; text: qsTr("设置参数并出光"); onClicked: root.sendEmission() }
-            Button {
-                Layout.fillWidth: true
+        DoubleButtonRow {
+            firstAction: Action { text: qsTr("设置参数并出光"); onTriggered: root.sendEmission() }
+            secondAction: Action {
                 text: qsTr("关光")
-                onClicked: {
+                onTriggered: {
                     const width = root.widthOptions[widthSelector.currentIndex]
                     if (root.backend.stopEmission(LaserProtocol.Seed, width ? width.code : 0))
                         root.logMessage(qsTr("关光命令已发送"))
                 }
             }
         }
-        RowLayout {
-            Layout.fillWidth: true
-            uniformCellSizes: true
-            spacing: 8
-            Button { Layout.fillWidth: true; text: qsTr("切换为内控"); onClicked: { if (root.backend.setControlMode(true)) root.logMessage(qsTr("切换内控命令已发送")) } }
-            Button { Layout.fillWidth: true; text: qsTr("切换为外控"); onClicked: { if (root.backend.setControlMode(false)) root.logMessage(qsTr("切换外控命令已发送")) } }
+        DoubleButtonRow {
+            firstAction: Action { text: qsTr("切换为内控"); onTriggered: { if (root.backend.setControlMode(true)) root.logMessage(qsTr("切换内控命令已发送")) } }
+            secondAction: Action { text: qsTr("切换为外控"); onTriggered: { if (root.backend.setControlMode(false)) root.logMessage(qsTr("切换外控命令已发送")) } }
         }
     }
 }
