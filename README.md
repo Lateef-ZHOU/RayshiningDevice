@@ -8,7 +8,7 @@ Windows 验证：通过主程序本地源码覆盖增量构建，五个网口官
 
 # 镭晟激光器官邸（RayshiningDevice）
 
-2026-11-02 连接生命周期：串口与 UDP 共用 LaserPage。Acquired 到达后先回读 isOpen，再合并查询脉宽、型号/SN、状态和测量，并启动 500 ms 查询；自动重连成功也执行此初始化。AboutToRelease 在主线程促断前同步尝试一次关光并停表，失败继续关闭、不等待确认。Released 到达且实际已关闭后清空状态/脉宽列表并停表；迟到的旧 Released 不清新连接状态，不再借线程 finished 或布尔连接信号推断。
+2026-11-02 连接生命周期：串口与 UDP 共用 LaserPage。Acquired 到达后先回读 isOpen，再合并查询脉宽、型号/SN、状态和测量，并启动 500 ms 查询；自动重连成功也执行此初始化。AboutToRelease 在主线程促断前同步尝试一次关光（后端 C++ 执行）并停表，失败继续关闭、不等待确认。Released 到达且实际已关闭后清空状态/脉宽列表并停表；迟到的旧 Released 不清新连接状态，不再借线程 finished 或布尔连接信号推断。
 
 2026-11-03 连接显示整理（用户定）：串口连接区只保留端口选择和连接/断开，删除线路规格说明、connectionDescription 属性和字符串组装函数。固定线路参数仍由 LaserHandle::parameters 构参；UDP 页面及通信行为保持。
 
@@ -47,7 +47,7 @@ UDP 的一个数据报就是一个 WHLS 主体：地址、命令、脉宽号、�
 
 ## C++ 官邸接口与数据
 
-- `open(SerialPortInfo)` / `close()`：显式连接与同步关闭；close 在关闭前通过 Handle 尝试发送一次种子地址、脉宽号 0 的关光帧，发送失败也继续关闭，不等待确认、不受设备占用阻止。发送成功不代表已收到硬件关光确认。连接规格固定 115200/8N1/无流控。重连行为仍由 Handle 负责，官邸不缓存端口、模块选择或 UI 草稿。串口枚举直接使用 HandleCore 的串口接口。
+- `open(SerialPortInfo)` / `close()`：显式连接与同步关闭；close（含换参重连和后端析构）在关闭前由后端经 Handle 尝试发送一次种子地址、脉宽号 0 的关光帧，发送失败也继续关闭，不等待确认、不受设备占用阻止。发送成功不代表已收到硬件关光确认。连接规格固定 115200/8N1/无流控。重连行为仍由 Handle 负责，官邸不缓存端口、模块选择或 UI 草稿。串口枚举直接使用 HandleCore 的串口接口。
 - `readRegisters(Module, quint8 widthIndex, const QList<Register>&)`：显式提交一次查询，模块为 Seed/Amplifier，脉宽号 0..5，寄存器非空且属于已定义枚举。发送前使用 canEngage；拒绝时写具体失败日志，Handle 已报告的发送失败不重复记录。返回 true 仅表示发送成功，不等于收到确认；没有待回包账本、轮询或自动重试业务。
 - `replyReady`：只交非绘图寄存器或命令确认 `Reply{module, command, widthIndex, readings}`。B1 支持任意多个完整 8 字节寄存器记录，非绘图项保留原顺序及重复项；仅含绘图项的包不发此信号。B5/B6/B7/B8 为无数据确认；其中 B7/B8 要求地址和脉宽号均为 0。无数据确认不伪造当前模式、光开关通道或最新出光参数，也不触发绘图。
 - `telemetryReady(RxTime, Module, QVariantMap)`：一包只要包含绘图量，就在整包处理完后发一次八值完整快照；同包更新八项仍只发一次。字段为 laserTemperature、mcuTemperature、pa1Current、pa2Current、pa3Current、sdCurrent、voltage、pztOffset，单位分别为 °C、A、V。QML 按模块路由后可以原样交 ChartCore 的 `LaserTelemetryChart.append(at, values)`，不再自行凑值。
@@ -121,7 +121,7 @@ V1.3.1 协议表未列出这两个测量项；用户提供的原厂 V3.0.48 上�
 ## 资源阶段通知（2026-11-02）
 
 连接采用 HandleCore 的 `connectionChanged(ResourcePhase)`；主动关闭前在所属线程同步发 `AboutToRelease`，完成事件用于回读现状。页面借出已有 `deviceState` 机制对象，不再保存 isOpen/isLocked/holder 的 QML 转交属性；标签通过连接/锁完成阶段回读，不恢复通用 statusChanged。固定依赖已同步；本轮提交尚未推送，验证使用显式本地源码覆盖。
-关光和停表位于同步 `AboutToRelease`；`Released` 确认仍离线时清空状态/脉宽选项；`Acquired` 确认在线后发首轮合并查询并启动轮询。不以延迟的完成通知撤单或向新连接发送关光。
+关光和停表位于同步 `AboutToRelease`：关光由 `LaserDeviceT` 构造时直连该通知发出（2026-11-09 起），覆盖主动断开、换参重连和后端析构，不依赖 QML 页面是否仍在；页面只停表。`Released` 确认仍离线时清空状态/脉宽选项；`Acquired` 确认在线后发首轮合并查询并启动轮询。不以延迟的完成通知撤单或向新连接发送关光。
 
 
 2026-11-03 验证：Windows Qt 6.11.2 Release、独立头编译与九项协议/解析/命令/串口/UDP/QML 验证 9/9 通过。接口联调使用相邻源码覆盖，新依赖固定为本地提交，尚未推送；未连接实物设备或更新板卡。

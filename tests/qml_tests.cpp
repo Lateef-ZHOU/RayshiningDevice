@@ -399,7 +399,7 @@ LaserModule {
     device->close();
     require(FakeSerialPort::writes().size() == beforeClose + 1
             && FakeSerialPort::writes().back() == encode(makeBody(0, 0x36, 0, {})) && FakeSerialPort::livePorts() == 0,
-            "actual QML disconnect sends one off before serial release");
+            "page disconnect sends exactly one backend off command before serial release");
     require(!timer->property("running").toBool(), "disconnect stops timer synchronously");
     require(until([&] { return page->property("seedReadings").value<QJSValue>().toVariant().toMap().isEmpty(); })
             && widthSelector->property("count").toInt() == 0

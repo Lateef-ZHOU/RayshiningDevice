@@ -65,9 +65,7 @@ int main(int argc, char **argv) {
     auto lock = std::make_shared<DeviceLock>(QStringLiteral("test"));
     require(device.tryLock(lock), "lock held");
     require(!device.stopEmission(Module::Seed, 0), "manual command respects lock");
-    // 与 QML 一样订阅 Handle 的关闭前通知；Device 先撤锁，业务槽再发送关光。
-    QObject::connect(&device, &LaserHandle::connectionChanged,
-        &device, [&](HandleCore::ResourcePhase phase) { if (phase == HandleCore::ResourcePhase::AboutToRelease) (void)device.stopEmission(Module::Seed, 0); });
+    // 后端自身订阅关闭前通知；Device 先撤锁，随后发送关光。
     const auto beforeClose = FakeSerialPort::writes().size();
     device.close();
     require(!device.isOpen() && FakeSerialPort::livePorts() == 0, "close releases the connection synchronously");
@@ -82,5 +80,15 @@ int main(int argc, char **argv) {
     device.close();
     require(FakeSerialPort::writesStarted() == attempts + 1 && !device.isOpen() && FakeSerialPort::livePorts() == 0,
             "failed off write is tried once and does not prevent disconnection");
+    FakeSerialPort::reset();
+    std::size_t beforeDestroy = 0;
+    {
+        LaserDevice owned(nullptr);
+        require(owned.open(SerialPortInfo{"controlled", {}}) && until([&] { return owned.isOpen(); }), "open before destruction");
+        beforeDestroy = FakeSerialPort::writes().size();
+    }
+    require(FakeSerialPort::livePorts() == 0 && FakeSerialPort::writes().size() == beforeDestroy + 1
+            && FakeSerialPort::writes().back() == encode(makeBody(0, 0x36, 0, {})),
+            "destroying a connected backend sends one seed off command before releasing the port");
     std::cout << checks << " command checks passed\n";
 }

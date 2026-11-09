@@ -73,15 +73,20 @@ int main(int argc, char **argv) {
     until([&] { return errors == 1; });
     require(replies == 1 && plots == 1, "bad body never partially publishes");
     bool closedBeforeSignal = true;
+    std::size_t sentAtSignal = 0;
+    const auto beforeClose = FakePcap::sent().size();
+    // 后端自身的关光槽先于本观察者连接，观察者看到的是关光已发出、连接尚未拆除。
     QObject::connect(handle, &PcapHandle::connectionChanged, &app, [&](HandleCore::ResourcePhase phase) {
         if (phase == HandleCore::ResourcePhase::AboutToRelease) {
             closedBeforeSignal = session->closed;
-            require(device.stopEmission(Module::Seed, 0), "off command can be sent before close");
+            sentAtSignal = FakePcap::sent().size();
         }
     });
     device.close();
     require(!closedBeforeSignal && session->closed && !device.isOpen(), "close notification precedes synchronous transport stop");
-    require(UDPDatagram(FakePcap::sent().back().bytes).bodyView() == makeBody(0, 0x36, 0, {}), "off command also uses body boundary");
+    require(sentAtSignal == beforeClose + 1 && FakePcap::sent().size() == beforeClose + 1
+            && UDPDatagram(FakePcap::sent().back().bytes).bodyView() == makeBody(0, 0x36, 0, {}),
+            "backend sends one off command over the body boundary before close");
     const auto count = FakePcap::sent().size(); device.close();
     require(FakePcap::sent().size() == count, "repeat close does not send again");
     std::printf("PASS %d checks\n", checks);

@@ -94,6 +94,9 @@ public:
         QObject::connect(this, &HandleT::connectionChanged, this, [this](HandleCore::ResourcePhase phase) {
             if (phase == HandleCore::ResourcePhase::Acquired && this->isOpen())
                 telemetry_ = {};
+            // 所属线程在促断前同步发出：主动断开、换参重连和析构都先尝试关光，失败仍继续关闭，不等确认。
+            else if (phase == HandleCore::ResourcePhase::AboutToRelease)
+                (void)stopEmission(Module::Seed, 0);
         });
     }
     // Qt 属性边界：无效 QVariant 表示未占用，QString（含空串）表示占用。

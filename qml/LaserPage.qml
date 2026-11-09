@@ -108,8 +108,7 @@ ModulePage {
                 root.query(root.widthRegisters.concat(root.identityRegisters, root.measurementRegisters, root.statusRegisters), false)
                 statusTimer.start()
             } else if (phase === ResourcePhase.AboutToRelease) {
-                // 所属线程同步调用，Handle 尚未促断；失败仍继续关闭，不等确认。
-                root.backend.stopEmission(LaserProtocol.Seed, 0)
+                // 关光由后端在同一通知中完成，页面只停止轮询。
                 statusTimer.stop()
             } else if (phase === ResourcePhase.Released && !root.backend.isOpen) {
                 root.seedReadings = ({})
